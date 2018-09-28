@@ -1,0 +1,8 @@
+name = Islandora Label Maker
+description = Islandora label maker generates new labels for objects based on Solr fields
+package = Islandora Tools
+dependencies[] = islandora
+dependencies[] = islandora_solr
+version = "7.x-2.x-dev"
+core = "7.x"
+
