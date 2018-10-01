@@ -40,9 +40,20 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
 
   $form['admin']['change_label_on_modify'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Make a new label when the Islandora object changes.'),
+    '#title' => t('Make a new label when any of the following datastreams changes.'),
+    '#default_value' => variable_get('islandora_label_maker_change_label_on_modify', false),
   );
 
+  $form['admin']['datastreams_change'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Datastream IDs'),
+    '#default_value' => implode(' ', variable_get('islandora_label_maker_datastreams_change', array('MODS', 'DC'))),
+    '#states' => array(
+      'visible' => array(
+        "input[name='change_label_on_modify']" => array("checked" => TRUE)
+      ),
+    ),
+  );
   $form['admin']['label_configs'] = array(
     '#theme_wrappers' => array('fieldset'),
     '#tree' => TRUE,
@@ -95,6 +106,8 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
 }
 
 function islandora_label_maker_admin_form_validate(array $form, array &$form_state) {
+  $solrlabelfield = variable_get('islandora_solr_object_label_field', 'fgs_label_s');
+  $haslabelconfig = false;
   for ($i = 1; $i <= number_of_label_configs() + 1; $i++) {
     $solrquery = $form_state['values']['label_configs']["group_$i"]['solr_query'];
     $labeltemplate = $form_state['values']['label_configs']["group_$i"]['label_template'];
@@ -103,23 +116,40 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
       if (!(isset($labeltemplate) && strlen($labeltemplate) > 0)) {
         form_set_error('label_template', t('Label configuration %item has a Solr query (%query) but not a label template', array('%item' => $i, '%query' => $solrquery)));
       }
+      else {
+        $haslabelconfig = true;
+      }
       $qp = new IslandoraSolrQueryProcessor();
       $qp->buildQuery($solrquery);
       $qp->executeQuery(false);
       $r = $qp->islandoraSolrResult;
       if ($r === NULL) {
-        form_set_error('label_template', t('Label configuration %item has an invalid Solr query (%query)', array('%item' => $i, '%query' => $solrquery)));
+        form_set_error('solr_query', t('Label configuration %item has an invalid Solr query (%query)', array('%item' => $i, '%query' => $solrquery)));
       }
     }
     if (isset($labeltemplate) && strlen($labeltemplate) > 0) {
       if (!(isset($solrquery) && strlen($solrquery) > 0)) {
-        form_set_error('label_template', t('Label configuration %item has a label template but not a Solr query', array('%item' => $i)));
+        form_set_error('solr_query', t('Label configuration %item has a label template but not a Solr query', array('%item' => $i)));
       }
+      if (preg_match("/\b$solrlabelfield\b/", $labeltemplate) === 1) {
+        form_set_error('label_template', t('Label configuration %item has a label template with the Solr label field (%solrlabelfield).', array('%item' => $i, '%solrlabelfield' => $solrlabelfield)));
+      }
+    }
+  }
+  if ($form_state['values']['change_label_on_modify']) {
+    if (!$haslabelconfig) {
+      form_set_error('change_label_on_modify', t('Cannot make a label without label configuration.'));
+    }
+    $datastreams = explode(' ', $form_state['values']['datastreams_change']);
+    if (count($datastreams) == 0 || strlen($datastreams[0]) == 0) {
+      form_set_error('datastreams_change', t('Fill out datastream IDs, e.g. MODS DC.'));
     }
   }
 }
 
 function islandora_label_maker_admin_form_submit(array $form, array &$form_state) {
+  variable_set('islandora_label_maker_change_label_on_modify', $form_state['values']['change_label_on_modify']);
+  variable_set('islandora_label_maker_datastreams_change', explode(' ', $form_state['values']['datastreams_change']));
   $vscounter = 1;
   $labelconfigs = array_values($form_state['values']['label_configs']);
   usort($labelconfigs, 'drupal_sort_weight');
@@ -140,7 +170,7 @@ function islandora_label_maker_admin_form_submit(array $form, array &$form_state
 }
 
 function number_of_label_configs() {
-  $nr_of_configs = 1;
+  $nr_of_configs = 0;
   for ($i = 1; $i <= 99; $i++) {
     $solrquery = variable_get('islandora_label_maker_label_config_' . $i . '_solr_query');
     $labeltemplate = variable_get('islandora_label_maker_label_config_' . $i . '_label_template');

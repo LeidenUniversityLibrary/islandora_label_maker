@@ -77,5 +77,47 @@ function islandora_label_maker_form_islandora_object_properties_form_alter(&$for
 }
 
 function islandora_label_maker_generate_label_submit(array $form, array &$form_state) {
-dpm($form_state, "nieuwe function!");
+  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
+  $newlabel = islandora_label_maker_label_for_object_id($form_state['object']->id);
+dpm($newlabel, 'label');
 }
+
+/**
+ * Implements hook_islandora_datastream_ingested().
+ */
+function islandora_label_maker_islandora_datastream_ingested(AbstractObject $object, AbstractDatastream $datastream) {
+  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
+  islandora_label_maker_add_to_label_queue($object, $datastream);
+}
+
+/**
+ * Implements hook_islandora_datastream_modified().
+ */
+function islandora_label_maker_islandora_datastream_modified(AbstractObject $object, AbstractDatastream $datastream) {
+  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
+  islandora_label_maker_add_to_label_queue($object, $datastream);
+}
+
+/*
+* Implements hook_cron_queue_info().
+*/
+function islandora_label_maker_cron_queue_info() {
+ $queues['islandora_label_maker_queue'] = array(
+    'worker callback' => 'islandora_label_maker_generate_label_worker',
+    'time' => 60,
+ );
+ return $queues;
+}
+
+function islandora_label_maker_generate_label_worker($data) {
+  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
+  $pid = $data['object_id'];
+  $solrquery = "PID:\"$id\"";
+  $solrobj = islandora_label_maker_object_for_solr_query($solrquery);
+  if ($solrdoc == null || $solrobj['solrdoc']['timestamp'] < $data['timestamp']) {
+    throw new Exception("Cannot update label of object $id, because Solr not up-to-date yet");
+  }
+  islandora_label_maker_generate_label_for_object_id($data['object_id']);
+}
+
+
