@@ -47,8 +47,12 @@ function islandora_label_maker_generate_label_for_object_id($id) {
 
 function islandora_label_maker_label_for_object_id($id) {
   for ($i = 1; $i <= 99; $i++) {
+    $active = variable_get('islandora_label_maker_label_config_' . $i . '_active');
     $solrquery = variable_get('islandora_label_maker_label_config_' . $i . '_solr_query');
     $labeltemplate = variable_get('islandora_label_maker_label_config_' . $i . '_label_template');
+    if (!$active) {
+      continue;
+    }
     if (isset($solrquery) && strlen($solrquery) > 0) {
        $query = "PID:\"$id\" AND $solrquery";
        $solrobj = islandora_label_maker_object_for_solr_query($query);
@@ -64,86 +68,101 @@ function islandora_label_maker_label_for_object_id($id) {
 }
 
 function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
+  $replacements = array();
   $label = preg_replace_callback(
-    '/{{\s*(?:(parent)(?:\(([^)]+)\))?\.)?([a-zA-Z0-9_]+)(?:\|(truncate)\((.+)\))?\s*}}/',
-    function($matches) use ($solrdoc) {
-      $value = '';
-      if (isset($matches[1]) && strlen($matches[1])) {
-        $value = islandora_label_maker_parent_solr_field($solrdoc['PID'], $matches[3], $matches[2]);
-      }
-      else {
-        $solrfield = $matches[3];
-        if (isset($solrdoc[$solrfield])) {
-          $value = $solrdoc[$solrfield];
-        }
-        elseif (isset($solrdoc['solr_doc'][$solrfield])) {
-          $value = $solrdoc['solr_doc'][$solrfield];
-        }
-      }
-      if (isset($matches[4]) && strlen($matches[4])) {
-        $value = islandora_label_maker_apply_function($value, $solrdoc, $matches[4], $matches[5]);
-      }
-      return $value;
+    '/{{\s*(.+?)\s*}}/',
+    function($matches) use ($solrdoc, &$replacements) {
+      $part = $matches[1];
+      return islandora_label_maker_replace_part($part, $solrdoc, $replacements);
     },
     $labeltemplate);
+dpm($replacements, 'replacements');
+  foreach (array_reverse($replacements) as $rep) {
+    $order = $rep['order'];
+    $type = $rep['type'];
+    $min = $rep['min'];
+    $max = $rep['max'];
+    $label = preg_replace_callback(
+      "/>>$order>>(.*?)<<$order<</",
+      function($matches) use ($type, $min, $max) {
 
-  if (mb_strlen($label) > 255) {
-    $label = mb_substr($label, 0, 252) . '...';
+      },
+      $label
+    );
   }
   return $label;
 }
 
-function islandora_label_maker_parent_solr_field($childid, $solrfield, $solrparentkey = null) {
-  $solrquery = '';
-  if (isset($solrparentkey)) {
-    $solrquery = "$solrparentkey:\"$childid\" OR $solrparentkey:\"info:fedora/$childid\"";
+function islandora_label_maker_value_from_solrdoc($solrfield, $solrdoc) {
+  $value = null;
+  if (isset($solrdoc[$solrfield])) {
+    $value = $solrdoc[$solrfield];
   }
-  else {
-    $fullcid = "info:fedora/$childid";
-    $solrquery = "RELS_EXT_isConstituentOf_uri_ms:\"$fullcid\" OR RELS_EXT_isMemberOf_uri_ms:\"$fullcid\" OR RELS_EXT_isPageOf_uri_ms:\"$fullcid\""; 
+  elseif (isset($solrdoc['solr_doc'][$solrfield])) {
+    $value = $solrdoc['solr_doc'][$solrfield];
   }
-  $solrdoc = islandora_label_maker_object_for_solr_query($solrquery);
-  if ($solrdoc) {
-    if (isset($solrdoc[$solrfield])) {
-      return $solrdoc[$solrfield];
-    }
-    elseif (isset($solrdoc['solr_doc'][$solrfield])) {
-      return $solrdoc['solr_doc'][$solrfield];
-    }
-  }
-  return '';
-}
-
-function islandora_label_maker_apply_function($value, $solrdoc, $function, $args) {
-  $arguments = array();
-  if (isset($args)) {
-    $arguments = explode(',', $args);
-    array_walk($arguments, function(&$value) { $value = trim($value); } );
-  }
-  if ($function === 'truncate') {
-    if (isset($arguments[0])) {
-      if (mb_strlen($value) > $arguments[0]) {
-        $len = $arguments[0];
-        if (isset($arguments[1])) {
-          $solrfield = $arguments[1];
-          if (isset($solrdoc[$solrfield])) {
-            $v = $solrdoc[$solrfield];
-          }
-          elseif (isset($solrdoc['solr_doc'][$solrfield])) {
-            $v = $solrdoc['solr_doc'][$solrfield];
-          }
-          $len = $len - mb_strlen($v); 
-          if (isset($arguments[2])) {
-            if ($len < $arguments[2]) {
-              $len = $arguments[2];
-            }
-          }
-        }
-        $value = mb_substr($value, 0, $len) . '...';
-      }
-    }
+  if (is_array($value)) {
+    $value = $value[0];
   }
   return $value;
+}
+
+function islandora_label_maker_replace_part($part, $solrdoc, &$replacements) {
+dpm($part,'part');
+  $result = preg_replace_callback(
+  '/^(?:([a-zA-Z0-9_-]+)|(truncate|parent|alternative|glue)\((.+)\)|"""(.*?)""")$/',
+  function($matches) use ($solrdoc, &$replacements) {
+dpm($matches, 'matches');
+    if (isset($matches[1]) && strlen($matches[1])) {
+      $solrfield = $matches[1];
+      return islandora_label_maker_value_from_solrdoc($solrfield, $solrdoc);
+    }
+    elseif (isset($matches[2]) && strlen($matches[2])) {
+      $func = $matches[2];
+      $argstr = $matches[3] . ',';
+      preg_match_all('/(?:([a-zA-Z0-9_-]+|""".+?"""|truncate\(.+\)|parent\(.+\)|alternative\(.+\)|glue\(.+\))\s*,\s*)/A', $argstr, $argmatches);
+      $args = $argmatches[1];
+      if ($func === 'truncate') {
+        $value = islandora_label_maker_replace_part($args[0], $solrdoc, $replacements);
+        $order = count($replacements) + 1;
+        $key = ">>$order>>$value<<$order<<";
+        $replacements[] = array('type' => $args[1], 'order' => $order, 'max' => (isset($args[2])?$args[2]:255), 'min' => (isset($args[3])?$args[3]:0));
+        return $key;
+      }
+      elseif ($func === 'parent') {
+        $parentid = islandora_label_maker_replace_part($args[0], $solrdoc, $replacements);
+        $parentid = str_replace('info:fedora/', '', $parentid);
+        $query = "PID:\"$parentid\"";
+        $psolrdoc = islandora_label_maker_object_for_solr_query($query);
+        $solrfield = $args[1];
+        return islandora_label_maker_value_from_solrdoc($solrfield, $psolrdoc);
+      }
+      elseif ($func === 'alternative') {
+        foreach ($args as $arg) {
+          $value = islandora_label_maker_replace_part($arg, $solrdoc, $replacements);
+          if (isset($value) && strlen($value)) {
+            return $value;
+          }
+        }
+        return '';
+      }
+      elseif ($func === 'glue') {
+        $result = '';
+        foreach ($args as $arg) {
+          $value = islandora_label_maker_replace_part($arg, $solrdoc, $replacements);
+          if (isset($value) && strlen($value)) {
+            $result .= $value;
+          }
+        }
+        return $result;
+      }
+    }
+    elseif (isset($matches[4]) && strlen($matches[4])) {
+      return $matches[4];
+    }
+  },
+  $part);
+  return $result;
 }
 
 function islandora_label_maker_object_for_solr_query($query) {
@@ -156,5 +175,5 @@ function islandora_label_maker_object_for_solr_query($query) {
   if (isset($r['response']['numFound']) && $r['response']['numFound'] > 0) {
     return $r['response']['objects'][0];
   }
-  return null; 
+  return null;
 }

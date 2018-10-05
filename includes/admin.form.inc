@@ -40,7 +40,7 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
 
   $form['admin']['change_label_on_modify'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Make a new label when any of the following datastreams changes.'),
+    '#title' => t('Make a new label when any of the following datastreams change.'),
     '#default_value' => variable_get('islandora_label_maker_change_label_on_modify', false),
   );
 
@@ -131,7 +131,7 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
       if (!(isset($solrquery) && strlen($solrquery) > 0)) {
         form_set_error('solr_query', t('Label configuration %item has a label template but not a Solr query', array('%item' => $i)));
       }
-      if (preg_match("/\b$solrlabelfield\b/", $labeltemplate) === 1) {
+      if (preg_match("/{{\s*$solrlabelfield\s*}}/", $labeltemplate) === 1) {
         form_set_error('label_template', t('Label configuration %item has a label template with the Solr label field (%solrlabelfield).', array('%item' => $i, '%solrlabelfield' => $solrlabelfield)));
       }
     }
