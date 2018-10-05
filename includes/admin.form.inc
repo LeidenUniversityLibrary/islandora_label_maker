@@ -70,13 +70,13 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
     $element['solr_query'] = array(
       '#type' => 'textfield',
       '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_solr_query'),
-      '#size' => 60,
+      '#size' => 80,
       '#maxlength' => 500,
     );
     $element['label_template'] = array(
       '#type' => 'textfield',
       '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_label_template'),
-      '#size' => 60,
+      '#size' => 120,
       '#maxlength' => 500,
     );
     $element['weight'] = array(
