@@ -78,8 +78,7 @@ function islandora_label_maker_form_islandora_object_properties_form_alter(&$for
 
 function islandora_label_maker_generate_label_submit(array $form, array &$form_state) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  $newlabel = islandora_label_maker_label_for_object_id($form_state['object']->id);
-dpm($newlabel, 'label');
+  islandora_label_maker_generate_label_for_object_id($form_state['object']->id);
 }
 
 /**

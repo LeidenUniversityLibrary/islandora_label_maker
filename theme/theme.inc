@@ -43,10 +43,10 @@ function theme_islandora_label_maker_config_table_drag_components($vars) {
   drupal_add_tabledrag($clean_id, 'order', 'sibling', 'item-row-weight');
 
   $header = array(
+    'active' => t('Active'),
     'solr_query' => t('Solr query'),
     'label_template' => t('Label template'),
     'weight' => t('Weight'),
-    'active' => t('Active'),
   );
 
   $rows = array();

@@ -27,8 +27,8 @@ function islandora_label_maker_add_to_label_queue($object, $datastream) {
   if (variable_get('islandora_label_maker_change_label_on_modify', false)) {
     $datastreams = variable_get('islandora_label_maker_datastreams_change');
     if (in_array($datastream->id, $datastreams)) {
-      $queue = DrupalQueue::get(‘islandora_label_maker_queue’);
-      $queue->createItem( array(“object_id” => $object->id, “timestamp” => time()) );
+      $queue = DrupalQueue::get('islandora_label_maker_queue');
+      $queue->createItem( array('object_id' => $object->id, 'timestamp' => time()) );
     }
   }
 }
@@ -75,8 +75,8 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
       $part = $matches[1];
       return islandora_label_maker_replace_part($part, $solrdoc, $truncates);
     },
-    $labeltemplate);
-//dpm($truncates, 'truncates');
+    $labeltemplate
+  );
   foreach (array_reverse($truncates) as $rep) {
     $order = $rep['order'];
     $type = $rep['type'];
@@ -86,16 +86,17 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
       "/>>$order>>(.*?)<<$order<</",
       function($matches) use (&$truncates, $type, $min, $max) {
         $value = $matches[1];
-//dpm($value, 'preg match replce for type ' . $type);
-        if ($type === 'inner') {
-          if (preg_match_all('/>>(\d+)>>(.*?)<<\1<</', $value, $innermatches) > 0) {
-      //dpm($innermatches, 'innermatches');
-            $valuelength = mb_strlen($value);
-            foreach ($innermatches[1] as $im) {
-              $valuelength -= mb_strlen($im) * 2 + 8;
-            }
-            if ($valuelength > $max) {
-//dpm(($valuelength - $max), "$valuelength > $max");
+        if (preg_match_all('/>>(\d+)>>(.*?)<<\1<</', $value, $innermatches) > 0) {
+          // calculate the length of this string
+          $valuelength = mb_strlen($value);
+          foreach ($innermatches[1] as $im) {
+            $valuelength -= mb_strlen($im) * 2 + 8;
+          }
+          // if the length is larger than the maximum allowed
+          if ($valuelength > $max) {
+            // ... truncate based on type
+            if ($type === 'inner') {
+              // if the type is inner, recalculate the length of the inner matches
               foreach ($innermatches[1] as $index => $im) {
                 $trunc = $truncates[$im];
                 if (mb_strlen($innermatches[2][$index]) > $trunc['max']) {
@@ -106,10 +107,7 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
                   $truncates[$im]['len'] = mb_strlen($innermatches[2][$index]);
                 }
               }
-//dpm($valuelength, 'value length');
               while ($valuelength > $max) {
-//dpm(($valuelength - $max), "$valuelength > $max");
-//dpm($truncates, 'truncs');
                 $madeshorter = false;
                 foreach ($innermatches[1] as $index => $im) {
                   $trunc = $truncates[$im];
@@ -123,10 +121,29 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
                   break;
                 }
               }
+              // truncate all the innermatches based on the calculated lengths
               foreach ($innermatches[1] as $index => $im) {
-//dpm($value, "before $index");
                 $value = preg_replace("/>>$im>>.*?<<$im<</", islandora_label_maker_truncate($innermatches[2][$index], $truncates[$im]['type'], $truncates[$im]['len']), $value);
-//dpm($value, "after $index");
+              }
+            }
+            else {
+              // if the type is something other than inner, also truncate the innermatches based on type and recalculate the total remaining length
+              $len = $valuelength;
+              foreach ($innermatches[1] as $index => $im) {
+                $value = preg_replace_callback(
+                  "/>>$im>>.*?<<$im<</",
+                  function($dontcare) use ($innermatches, $index, $im, $truncates, &$len) {
+                    $oldvalue = $innermatches[2][$index];
+                    $newvalue = islandora_label_maker_truncate($oldvalue, $truncates[$im]['type'], $truncates[$im]['max']);
+                    $len -= (mb_strlen($oldvalue) - mb_strlen($newvalue));
+                    return $newvalue;
+                  },
+                  $value
+                );
+              }
+              // if the total remaining length is more than max, also truncate the whole.
+              if ($len > $max) {
+                $value = islandora_label_maker_truncate($value, $type, $max);
               }
             }
           }
@@ -154,11 +171,9 @@ function islandora_label_maker_value_from_solrdoc($solrfield, $solrdoc) {
 }
 
 function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
-//dpm($part,'part');
   $result = preg_replace_callback(
   '/^\s*(?:([a-zA-Z0-9_-]+)|(truncate|parent|alternative|glue)\((.+)\)|"""(.*?)""")\s*$/',
   function($matches) use ($solrdoc, &$truncates, $part) {
-//dpm($matches, 'matches');
     $result = '';
     if (isset($matches[1]) && strlen($matches[1])) {
       $solrfield = $matches[1];
@@ -168,19 +183,34 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
       $func = $matches[2];
       $argstr = $matches[3];
       $args = islandora_label_maker_args_split($argstr);
-      //dpm($args, 'split args');
-      //$funcargs = '\\((?:[^()]+|\\)';
-      //preg_match_all('/(?:([a-zA-Z0-9_-]+|""".+?"""|truncate\(.+\)|parent\(.+\)|alternative\(.+\)|glue\(.+\))\s*,\s*)/A', $argstr, $argmatches);
-      //$args = $argmatches[1];
       if ($func === 'truncate') {
+        $max = (isset($args[2])?intval($args[2]):255);
+        $min = (isset($args[3])?intval($args[3]):0);
+        if (count($args) > 4) {
+          throw new Exception(t("truncate() has too many arguments, expecting 3 but found @argscount: %args", array('@argscount' => count($args), '%args' => implode(',', $args))));
+        }
+        if (count($args) < 3) {
+          throw new Exception(t("truncate() has too little arguments, expecting at least 3"));
+        }
+        if (!in_array($args[1], array('end','begin','middle','inner'))) {
+          throw new Exception(t("truncate() second argument should be begin, end, middle or inner, but is: %arg", array('%arg' => $args[1])));
+        }
+        if (count($args) > 2 && ($max < 0)) {
+          throw new Exception(t("truncate() third argument should be a positive number, but found %arg", array('%arg' => $args[2])));
+        }
+        if (count($args) > 3 && ($min >= $max)) {
+          throw new Exception(t("truncate() fourth argument should be a positive number smaller than the third argument, but found %arg", array('%arg' => $args[3])));
+        }
         $value = islandora_label_maker_replace_part($args[0], $solrdoc, $truncates);
         $order = count($truncates) + 1;
         $key = ">>$order>>$value<<$order<<";
-        $truncates[$order] = array('type' => $args[1], 'order' => $order, 'max' => (isset($args[2])?$args[2]:255), 'min' => (isset($args[3])?$args[3]:0));
-dpm($truncates, 'added to truncates for ' . $part);
+        $truncates[$order] = array('type' => $args[1], 'order' => $order, 'max' => $max, 'min' => $min);
         $result = $key;
       }
       elseif ($func === 'parent') {
+        if (count($args) != 2) {
+          throw new Exception(t("parent() should have two arguments (the solr field containing the parent identifier and the value to use from the parent) but found @argscount: %args", array('@argscount' => count($args), '%args' => implode(',', $args))));
+        }
         $parentid = islandora_label_maker_replace_part($args[0], $solrdoc, $truncates);
         $parentid = str_replace('info:fedora/', '', $parentid);
         $query = "PID:\"$parentid\"";
@@ -189,10 +219,11 @@ dpm($truncates, 'added to truncates for ' . $part);
         $result = islandora_label_maker_replace_part($parentfield, $psolrdoc, $truncates);
       }
       elseif ($func === 'alternative') {
-//dpm($args, 'alternative');
+        if (count($args) < 2) {
+          throw new Exception(t("alternative() should have at least two arguments"));
+        }
         foreach ($args as $arg) {
           $value = islandora_label_maker_replace_part($arg, $solrdoc, $truncates);
-//dpm($arg, "alternative value = '$value'");
           if (isset($value) && strlen($value)) {
             $result = $value;
             break;
@@ -200,7 +231,9 @@ dpm($truncates, 'added to truncates for ' . $part);
         }
       }
       elseif ($func === 'glue') {
-//dpm($args, 'glue');
+        if (count($args) < 2) {
+          throw new Exception(t("glue() should have at least two arguments"));
+        }
         foreach ($args as $arg) {
           $value = islandora_label_maker_replace_part($arg, $solrdoc, $truncates);
           if (isset($value) && strlen($value)) {
@@ -212,7 +245,9 @@ dpm($truncates, 'added to truncates for ' . $part);
     elseif (isset($matches[4]) && strlen($matches[4])) {
       $result = $matches[4];
     }
-dpm($result, "result voor part $part");
+    else {
+      throw new Exception(t("malformed label template"));
+    }
     return $result;
   },
   $part);
@@ -252,7 +287,6 @@ function islandora_label_maker_args_split($argstr) {
 }
 
 function islandora_label_maker_truncate($value, $type, $maxlength, $omissionsign = '...') {
-dpm(array($value, $type, $maxlength), 'truncating');
   if (mb_strlen($value) > $maxlength) {
     if ($type === 'end') {
       $value = mb_substr($value, 0, $maxlength - mb_strlen($omissionsign)) . $omissionsign;

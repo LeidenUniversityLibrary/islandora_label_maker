@@ -25,7 +25,7 @@
 
 
 /**
- * Implementation of a form. 
+ * Implementation of a form.
  *
  * @see drupal_get_form
  */
@@ -67,16 +67,20 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
     $element =& $form['admin']['label_configs']["group_$i"];
 
     $element['#weight'] = $i;
+    $element['active'] = array(
+      '#type' => 'checkbox',
+      '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_active'),
+    );
     $element['solr_query'] = array(
       '#type' => 'textfield',
       '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_solr_query'),
-      '#size' => 80,
+      '#size' => 100,
       '#maxlength' => 500,
     );
     $element['label_template'] = array(
       '#type' => 'textfield',
       '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_label_template'),
-      '#size' => 120,
+      '#size' => 135,
       '#maxlength' => 500,
     );
     $element['weight'] = array(
@@ -89,10 +93,6 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
         ),
       ),
     );
-    $element['active'] = array(
-      '#type' => 'checkbox',
-      '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_active'),
-    );    
   }
 
   $form['admin']['submit'] = array(
@@ -106,15 +106,18 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
 }
 
 function islandora_label_maker_admin_form_validate(array $form, array &$form_state) {
+  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
+
   $solrlabelfield = variable_get('islandora_solr_object_label_field', 'fgs_label_s');
   $haslabelconfig = false;
   for ($i = 1; $i <= number_of_label_configs() + 1; $i++) {
     $solrquery = $form_state['values']['label_configs']["group_$i"]['solr_query'];
     $labeltemplate = $form_state['values']['label_configs']["group_$i"]['label_template'];
+    $active = $form_state['values']['label_configs']["group_$i"]['active'];
 
     if (isset($solrquery) && strlen($solrquery) > 0) {
       if (!(isset($labeltemplate) && strlen($labeltemplate) > 0)) {
-        form_set_error('label_template', t('Label configuration %item has a Solr query (%query) but not a label template', array('%item' => $i, '%query' => $solrquery)));
+        form_set_error('label_template', t('Label configuration %item has a Solr query (%query) but not a label template.', array('%item' => $i, '%query' => $solrquery)));
       }
       else {
         $haslabelconfig = true;
@@ -124,15 +127,33 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
       $qp->executeQuery(false);
       $r = $qp->islandoraSolrResult;
       if ($r === NULL) {
-        form_set_error('solr_query', t('Label configuration %item has an invalid Solr query (%query)', array('%item' => $i, '%query' => $solrquery)));
+        form_set_error('solr_query', t('Label configuration %item has an invalid Solr query (%query).', array('%item' => $i, '%query' => $solrquery)));
+      }
+      if ($active) {
+        if ($r['response']['numFound'] === 0) {
+          form_set_error('solr_query', t('Label configuration %item has a Solr query (%query) that does not match anything.', array('%item' => $i, '%query' => $solrquery)));
+        }
       }
     }
     if (isset($labeltemplate) && strlen($labeltemplate) > 0) {
       if (!(isset($solrquery) && strlen($solrquery) > 0)) {
-        form_set_error('solr_query', t('Label configuration %item has a label template but not a Solr query', array('%item' => $i)));
+        form_set_error('solr_query', t('Label configuration %item has a label template but not a Solr query.', array('%item' => $i)));
       }
       if (preg_match("/{{\s*$solrlabelfield\s*}}/", $labeltemplate) === 1) {
         form_set_error('label_template', t('Label configuration %item has a label template with the Solr label field (%solrlabelfield).', array('%item' => $i, '%solrlabelfield' => $solrlabelfield)));
+      }
+      try {
+        $solrdoc = array();
+        if (isset($r['response']['objects'][0])) {
+          $solrdoc = $r['response']['objects'][0];
+        }
+        $label = islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate);
+        if (strlen($label) === 0 || $label === $labeltemplate) {
+          form_set_error('label_template', t('Label configuration %item has a label template that will produce unexpected results in some cases.', array('%item' => $i)));
+        }
+      }
+      catch (Exception $e) {
+        form_set_error('label_template', t('Label configuration %item has a malformatted label template: !error.', array('%item' => $i, '!error' => $e->getMessage())));
       }
     }
   }
