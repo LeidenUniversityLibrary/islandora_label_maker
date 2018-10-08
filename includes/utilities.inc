@@ -29,6 +29,7 @@ function islandora_label_maker_add_to_label_queue($object, $datastream) {
     if (in_array($datastream->id, $datastreams)) {
       $queue = DrupalQueue::get('islandora_label_maker_queue');
       $queue->createItem( array('object_id' => $object->id, 'timestamp' => time()) );
+dpm($object->id, 'added to queue');
     }
   }
 }

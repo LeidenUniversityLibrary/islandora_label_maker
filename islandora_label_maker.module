@@ -34,9 +34,26 @@ function islandora_label_maker_menu() {
   return array(
     'admin/islandora/tools/islandora_label_maker' => array(
       'title' => 'Islandora Label Maker',
+      'type' => MENU_NORMAL_ITEM,
       'page callback' => 'drupal_get_form',
       'page arguments' => array('islandora_label_maker_admin_form'),
       'file' => 'includes/admin.form.inc',
+      'access arguments' => array(ISLANDORA_LABEL_MAKER_ADMIN_PERMISSION),
+    ),
+    'admin/islandora/tools/islandora_label_maker/config' => array(
+      'title' => 'Configuration',
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+//      'page callback' => 'drupal_get_form',
+//      'page arguments' => array('islandora_label_maker_admin_form'),
+//      'file' => 'includes/admin.form.inc',
+      'access arguments' => array(ISLANDORA_LABEL_MAKER_ADMIN_PERMISSION),
+    ),
+    'admin/islandora/tools/islandora_label_maker/pending' => array(
+      'title' => 'Pending Labels',
+      'type' => MENU_LOCAL_TASK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('islandora_label_maker_pending_form'),
+      'file' => 'includes/pending.form.inc',
       'access arguments' => array(ISLANDORA_LABEL_MAKER_ADMIN_PERMISSION),
     ),
   );
