@@ -27,27 +27,32 @@ function islandora_label_maker_get_queue() {
   return $queue = DrupalQueue::get('islandora_label_maker_queue');
 }
 
-function islandora_label_maker_add_to_label_queue($object, $dsid) {
+function islandora_label_maker_add_to_label_queue($objectid, $dsid = null, $time = null) {
   if (variable_get('islandora_label_maker_change_label_on_modify', false)) {
     $allowed_dsids = variable_get('islandora_label_maker_datastreams_change');
-    if (in_array($dsid, $allowed_dsids)) {
+    if ($dsid === null || in_array($dsid, $allowed_dsids)) {
       $queue = islandora_label_maker_get_queue();
-      $timestamp = date("Y-m-d\TH:i:s.000", time());
-      $queue->createItem( array('object_id' => $object->id, 'timestamp' => $timestamp) );
+      if ($time === null) {
+        $time = time();
+      }
+      $timestamp = date("Y-m-d\TH:i:s.000", $time);
+      $queue->createItem( array('object_id' => $objectid, 'timestamp' => $timestamp) );
     }
   }
 }
 
-function islandora_label_maker_generate_label_for_object_id($id) {
- // generate the label, only change label if different than current label
- $newlabel = islandora_label_maker_label_for_object_id($id);
- if ($newlabel === false) {
-    return;
- }
- $obj = islandora_object_load($id);
- if ($obj->label !== $newlabel) {
-   $obj->label = $newlabel;
- }
+function islandora_label_maker_update_label_for_object_id($id) {
+  // generate the label, only change label if different than current label
+  $newlabel = islandora_label_maker_label_for_object_id($id);
+  if ($newlabel === false) {
+     return false;
+  }
+  $obj = islandora_object_load($id);
+  $result = array('oldlabel' => $obj->label, 'newlabel' => $newlabel);
+  if ($obj->label !== $newlabel) {
+    $obj->label = $newlabel;
+  }
+  return $result;
 }
 
 function islandora_label_maker_label_for_object_id($id) {
@@ -62,7 +67,10 @@ function islandora_label_maker_label_for_object_id($id) {
        $query = "PID:\"$id\" AND $solrquery";
        $solrobj = islandora_label_maker_object_for_solr_query($query);
        if ($solrobj !== null) {
-         return islandora_label_maker_label_for_solr_object($solrobj, $labeltemplate);
+         $result = islandora_label_maker_label_for_solr_object($solrobj, $labeltemplate);
+         if ($result !== false) {
+           return $result;
+         }
        }
     }
     else {
@@ -157,6 +165,10 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
       },
       $label
     );
+  }
+  $label = trim($label);
+  if (strlen($label) === 0) {
+    return false;
   }
   return $label;
 }

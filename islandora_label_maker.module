@@ -95,7 +95,7 @@ function islandora_label_maker_form_islandora_object_properties_form_alter(&$for
 
 function islandora_label_maker_generate_label_submit(array $form, array &$form_state) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  islandora_label_maker_generate_label_for_object_id($form_state['object']->id);
+  islandora_label_maker_update_label_for_object_id($form_state['object']->id);
 }
 
 /**
@@ -103,7 +103,7 @@ function islandora_label_maker_generate_label_submit(array $form, array &$form_s
  */
 function islandora_label_maker_islandora_datastream_ingested(AbstractObject $object, AbstractDatastream $datastream) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  islandora_label_maker_add_to_label_queue($object, $datastream->id);
+  islandora_label_maker_add_to_label_queue($object->id, $datastream->id);
 }
 
 /**
@@ -111,7 +111,7 @@ function islandora_label_maker_islandora_datastream_ingested(AbstractObject $obj
  */
 function islandora_label_maker_islandora_datastream_modified(AbstractObject $object, AbstractDatastream $datastream) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  islandora_label_maker_add_to_label_queue($object, $datastream->id);
+  islandora_label_maker_add_to_label_queue($object->id, $datastream->id);
 }
 
 /**
@@ -119,7 +119,7 @@ function islandora_label_maker_islandora_datastream_modified(AbstractObject $obj
  */
 function islandora_label_maker_islandora_datastream_purged(AbstractObject $object, $dsid) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  islandora_label_maker_add_to_label_queue($object, $dsid);
+  islandora_label_maker_add_to_label_queue($object->id, $dsid);
 }
 
 /*
@@ -138,10 +138,13 @@ function islandora_label_maker_generate_label_worker($data) {
   $pid = $data['object_id'];
   $solrquery = "PID:\"$pid\"";
   $solrobj = islandora_label_maker_object_for_solr_query($solrquery);
-  if ($solrobj == null || $solrobj['solr_doc']['timestamp'] < $data['timestamp']) {
+  if ($solrobj == null) {
+    throw new Exception("Cannot update label of object $pid, because Solr record can not be found");
+  }
+  if ($solrobj['solr_doc']['timestamp'] < $data['timestamp']) {
     throw new Exception("Cannot update label of object $pid, because Solr is not up-to-date yet");
   }
-  islandora_label_maker_generate_label_for_object_id($pid);
+  islandora_label_maker_update_label_for_object_id($pid);
 }
 
 
