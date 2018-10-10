@@ -23,13 +23,17 @@
  *
  */
 
-function islandora_label_maker_add_to_label_queue($object, $datastream) {
+function islandora_label_maker_get_queue() {
+  return $queue = DrupalQueue::get('islandora_label_maker_queue');
+}
+
+function islandora_label_maker_add_to_label_queue($object, $dsid) {
   if (variable_get('islandora_label_maker_change_label_on_modify', false)) {
-    $datastreams = variable_get('islandora_label_maker_datastreams_change');
-    if (in_array($datastream->id, $datastreams)) {
-      $queue = DrupalQueue::get('islandora_label_maker_queue');
-      $queue->createItem( array('object_id' => $object->id, 'timestamp' => time()) );
-dpm($object->id, 'added to queue');
+    $allowed_dsids = variable_get('islandora_label_maker_datastreams_change');
+    if (in_array($dsid, $allowed_dsids)) {
+      $queue = islandora_label_maker_get_queue();
+      $timestamp = date("Y-m-d\TH:i:s.000", time());
+      $queue->createItem( array('object_id' => $object->id, 'timestamp' => $timestamp) );
     }
   }
 }

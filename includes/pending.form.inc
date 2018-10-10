@@ -30,9 +30,11 @@
  * @see drupal_get_form
  */
 function islandora_label_maker_pending_form(array $form, array &$form_state) {
+  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
+
   $form = array();
 
-  $queue = DrupalQueue::get('islandora_label_maker_queue');
+  $queue = islandora_label_maker_get_queue();
   $queuesize = $queue->numberOfItems();
   if ($queuesize > 0) {
     $description = format_plural($queuesize, "There might be 1 item pending (but maybe it is processed already).", "There are approximately !count items pending.", array('!count' => $queuesize));
@@ -62,4 +64,35 @@ function islandora_label_maker_pending_form(array $form, array &$form_state) {
 }
 
 function islandora_label_maker_pending_form_submit(array $form, array &$form_state) {
+  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
+
+  $queues = module_invoke('islandora_label_maker', 'cron_queue_info');
+  drupal_alter('cron_queue_info', $queues);
+
+  foreach ($queues as $queuename => $info) {
+    $itemsdone = 0;
+    $func = $info['worker callback'];
+    $starttime = time();
+    $allowedtime = (isset($info['time'])?$info['time']:10);
+    $endtime = $starttime + $allowedtime;
+    $queue = DrupalQueue::get($queuename);
+    if ($queue) {
+      while ((time() < $endtime) && ($item = $queue->claimItem())) {
+        try {
+          $func($item->data); 
+          $queue->deleteItem($item);
+          $itemsdone++;
+        }
+        catch (Exception $e) {
+          drupal_set_message($e->getMessage(), 'error', FALSE);
+        }
+      }
+    }
+    if ($itemsdone === 0) {
+      drupal_set_message(t("No items found to process."));
+    }
+    else {
+      drupal_set_message(format_plural($itemsdone, "Generated 1 new label in the time allowed (!allowed seconds).", "Generated !count new labels in the time allowed (!allowed seconds).", array('!count' => $itemsdone, '!allowed' => $allowedtime)));
+    }
+  }
 }
