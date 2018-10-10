@@ -101,7 +101,48 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
     '#submit' => array('islandora_label_maker_admin_form_submit'),
     '#validate' => array('islandora_label_maker_admin_form_validate'),
   );
-
+  $form['admin']['help'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Label Template Help'),
+    '#collapsible' => true,
+    '#collapsed' => true,
+  );
+  $form['admin']['help']['#description'] = <<<'EODESC'
+The label template is normal text where values between double brackets ({{ }}) are replaced by a calculated value. Between the double brackets any of the following is allowed:
+<UL>
+  <LI><I>solr_field</I>
+    <P>The value of this Solr field is used.</P>
+  </LI>
+  <LI>alternative( <I>something</I>, <I>another thing</I> )
+    <P>If <I>something</I> is not defined, use <I>another thing</I>. Can have more than 2 arguments. The last argument can be a """constant value""" (between triple quotes).</P>
+  </LI>
+  <LI>glue( <I>something</I>, <I>another thing</I> )
+    <P>Glues <I>something</I> and <I>another thing</I> together. Can have more than 2 arguments. Any argument can be a """constant value"""".</P>
+  </LI>
+  <LI>parent( <I>solr_field_containing_parent_id</I>, <I>something</I> )
+    <P>Use the Solr fields of the parent of this item. <I>solr_field_containing_parent_id</I> should be a Solr field that contains the identifier of the parent, such as RELS_EXT_isMemberOfCollection_uri_ms. <I>something</I> can be a Solr field or an alternative.</P>
+  </LI>
+  <LI>truncate( <I>something</I>, <I>type</I>, <I>maximum length</I>, <I>minimum length</I> )
+    <P>Truncates the value defined by <I>something</I> to the <I>maximum length</I>. Type can be begin, end, middle or inner and defines where the truncation happens. Then type inner lets you truncate a inner value based on the outer total length.
+       See examples for how to use this. The value will never be truncated past the minimum length.</P>
+  </LI>
+</UL>
+<P><EM>Examples</EM>
+  <UL>
+    <LI>{{ mods_titleInfo_title_s }}
+      <P>Use the title from the MODS as the label of the object</P>
+    </LI>
+    <LI>{{ alternative( mods_titleInfo_title_s, dc.title, """No title""" ) }}
+      <P>Use the title from the MODS as the label of the object, but if it does not exist use the title from the Dublin Core, or if that does not exist use "No title" (without the quotes).</P>
+    </LI>
+    <LI>{{ glue( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), """ - """, mods_titleInfo_title_s ) }}
+      <P>Use the title from the MODS of the parent, combined with " -" and the title from the MODS as the label of the object</P>
+    </LI>
+    <LI>{{ truncate( glue( truncate( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), end, 200, 100 ), """ - """, mods_titleInfo_title_s ), inner, 255 ) }}
+      <P>The same as above, but truncates the whole string to 255 characters at most. This is done by truncating the title of the parent to 200 characters or less, in such a way that at least 100 characters remain in the title.<BR/>Note: it is possible that the resulting string is more than 255 characters if the title is more than 155 characters long; the parent title will not be truncated to less than 100 characters, so if the title is longer than 155 the total will end up being over 255 characters long. This can be fixed by also setting a truncate to the title.</P>
+    </LI>
+</P>
+EODESC;
   return $form;
 }
 
