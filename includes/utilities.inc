@@ -49,10 +49,12 @@ function islandora_label_maker_related_solrobj_for_object($parentid) {
   $parentsolrfields = variable_get("islandora_label_maker_parent_solr_fields", array());
   $solrquery = "";
   foreach ($parentsolrfields as $parentsolrfield) {
-    if ($solrquery !== "") {
-      $solrquery .= ' OR ';
+    if (strlen($parentsolrfield) > 0) {
+      if ($solrquery !== "") {
+        $solrquery .= ' OR ';
+      }
+      $solrquery .= "$parentsolrfield:\"$parentid\" OR $parentsolrfield:\"info:fedora/$parentid\"";
     }
-    $solrquery .= "$parentsolrfield:\"$parentid\" OR $parentsolrfield:\"info:fedora/$parentid\"";
   }
   if ($solrquery === "") {
     return array();
