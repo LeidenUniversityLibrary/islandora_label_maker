@@ -227,7 +227,7 @@ function islandora_label_maker_value_from_solrdoc($solrfield, $solrdoc) {
 
 function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
   $result = preg_replace_callback(
-  '/^\s*(?:([a-zA-Z0-9_-]+)|(truncate|parent|alternative|glue)\((.+)\)|"""(.*?)""")\s*$/',
+  '/^\s*(?:([a-zA-Z0-9_.]+)|(truncate|parent|alternative|glue)\((.+)\)|"""(.*?)""")\s*$/',
   function($matches) use ($solrdoc, &$truncates, $part) {
     $result = '';
     if (isset($matches[1]) && strlen($matches[1])) {
