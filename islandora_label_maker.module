@@ -53,6 +53,14 @@ function islandora_label_maker_menu() {
       'file' => 'includes/pending.form.inc',
       'access arguments' => array(ISLANDORA_LABEL_MAKER_ADMIN_PERMISSION),
     ),
+    'islandora/object/%islandora_object/manage/generate_label' => array(
+      'title' => 'Generate Label',
+      'file' => 'includes/generate.form.inc',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('islandora_label_maker_generate_form', 2),
+      'type' => MENU_CALLBACK,
+      'access arguments' => array(ISLANDORA_LABEL_MAKER_ADMIN_PERMISSION),
+    ),
   );
 }
 
@@ -76,6 +84,10 @@ function islandora_label_maker_theme($existing, $type, $theme, $path) {
       'render element' => 'element',
       'file' => 'theme/theme.inc',
     ),
+    'islandora_label_maker_generate_table_components' => array(
+      'render element' => 'element',
+      'file' => 'theme/theme.inc',
+    ),
   );
 }
 
@@ -85,14 +97,22 @@ function islandora_label_maker_theme($existing, $type, $theme, $path) {
 function islandora_label_maker_form_islandora_object_properties_form_alter(&$form, &$form_state, $form_id) {
   $form['admin']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Generate new label'),
-    '#submit' => array('islandora_label_maker_generate_label_submit'),
+    '#value' => t('Generate new label...'),
+    '#submit' => array('islandora_label_maker_goto_generate_label_submit'),
+    '#limit_validation_errors' => array(array('pid')),
   );
 }
 
-function islandora_label_maker_generate_label_submit(array $form, array &$form_state) {
-  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  islandora_label_maker_update_label_for_object_id($form_state['object']->id);
+/**
+ * Callback function for object properties admin form generate label button.
+ *
+ * @param array $form
+ *   The Drupal form.
+ * @param array $form_state
+ *   The Drupal form state.
+ */
+function islandora_label_maker_goto_generate_label_submit(array $form, array &$form_state) {
+  drupal_goto("islandora/object/{$form_state['values']['pid']}/manage/generate_label");
 }
 
 /**
@@ -143,7 +163,7 @@ function islandora_label_maker_generate_label_worker($data) {
   }
   islandora_label_maker_update_label_for_object_id($pid);
   if ($data['includerelated']) {
-    islandora_label_maker_add_related_to_label_queue_if_needed($pid);
+    islandora_label_maker_add_related_to_label_queue_if_needed($pid, 0);
   }
 }
 

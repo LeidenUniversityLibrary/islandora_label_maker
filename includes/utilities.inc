@@ -45,7 +45,7 @@ function islandora_label_maker_add_to_label_queue($objectid, $time = null, $incl
   $queue->createItem( array('object_id' => $objectid, 'timestamp' => $timestamp, 'includerelated' => $includerelated) );
 }
 
-function islandora_label_maker_add_related_to_label_queue_if_needed($parentid, $time = null) {
+function islandora_label_maker_related_solrobj_for_object($parentid) {
   $parentsolrfields = variable_get("islandora_label_maker_parent_solr_fields", array());
   $solrquery = "";
   foreach ($parentsolrfields as $parentsolrfield) {
@@ -54,14 +54,23 @@ function islandora_label_maker_add_related_to_label_queue_if_needed($parentid, $
     }
     $solrquery .= "$parentsolrfield:\"$parentid\" OR $parentsolrfield:\"info:fedora/$parentid\"";
   }
+  if ($solrquery === "") {
+    return array();
+  }
   $qp = new IslandoraSolrQueryProcessor();
   $qp->buildQuery($solrquery);
   $qp->solrParams['fq'] = array(); // make sure we get all the results
   $qp->executeQuery(false);
   $r = $qp->islandoraSolrResult;
-  foreach ($r['response']['objects'] as $solrobj) {
+
+  return $r['response']['objects'];
+}
+
+function islandora_label_maker_add_related_to_label_queue_if_needed($parentid, $time = null) {
+  $solrobjs = islandora_label_maker_related_solrobj_for_object($parentid);
+  foreach ($solrobjs as $solrobj) {
     $objectid = $solrobj['PID'];
-    islandora_label_maker_add_to_label_queue($objectid, 0, false);
+    islandora_label_maker_add_to_label_queue($objectid, $time, false);
   }
 }
 
@@ -185,6 +194,9 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
             }
           }
         }
+        else {
+          $value = islandora_label_maker_truncate($value, $type, $max);
+        }
         return $value;
       },
       $label
@@ -233,8 +245,8 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
         if (count($args) < 3) {
           throw new Exception(t("truncate() has too little arguments, expecting at least 3"));
         }
-        if (!in_array($args[1], array('end','begin','middle','inner'))) {
-          throw new Exception(t("truncate() second argument should be begin, end, middle or inner, but is: %arg", array('%arg' => $args[1])));
+        if (!in_array($args[1], array('wordend','wordbegin','wordmiddle','end','begin','middle','inner'))) {
+          throw new Exception(t("truncate() second argument should be wordbegin, wordend, wordmiddle, begin, end, middle or inner, but is: %arg", array('%arg' => $args[1])));
         }
         if (count($args) > 2 && ($max < 0)) {
           throw new Exception(t("truncate() third argument should be a positive number, but found %arg", array('%arg' => $args[2])));
@@ -329,14 +341,61 @@ function islandora_label_maker_args_split($argstr) {
 
 function islandora_label_maker_truncate($value, $type, $maxlength, $omissionsign = '...') {
   if (mb_strlen($value) > $maxlength) {
-    if ($type === 'end') {
-      $value = mb_substr($value, 0, $maxlength - mb_strlen($omissionsign)) . $omissionsign;
+    if ($maxlength < 3) {
+      // leave out the omissionsign if the truncated word is very short
+      $omissionsign = '';
+    }
+    $maxlength -= mb_strlen($omissionsign);
+    if ($type === 'wordend') {
+      // we should use truncate_utf8() instead of rolling our own, but cannot set omissionsign...
+      $matches = array();
+
+      $minlength = max(0, ($maxlength - max(10, ($maxlength/10)))); // make sure that there is not to much truncated
+
+      $found = preg_match('/^(.{' . $minlength . ',' . intval($maxlength) . '})[' . PREG_CLASS_UNICODE_WORD_BOUNDARY . ']/u', $value, $matches);
+      if ($found) {
+        $value = $matches[1] . $omissionsign;
+      }
+      else {
+        $value = mb_substr($value, 0, $maxlength) . $omissionsign;
+      }
+    }
+    elseif ($type === 'wordbegin') {
+      $matches = array();
+
+      $minlength = max(0, ($maxlength -  max(10, ($maxlength/10)))); // make sure that there is not to much truncated
+
+      $found = preg_match('/[' . PREG_CLASS_UNICODE_WORD_BOUNDARY . '](.{' . $minlength . ',' . intval($maxlength) . '})$/u', $value, $matches);
+      if ($found) {
+        $value = $omissionsign . $matches[1];
+      }
+      else {
+        $value = $omissionsign . mb_substr($value, 0, $maxlength);
+      }
+    }
+    elseif ($type === 'wordmiddle') {
+      $matches = array();
+
+      $partmaxlen = floor($maxlength / 2) + ($maxlength % 2 == 1)?1:0;
+      $partminlen = max(0, ($partmaxlen -  max(6, floor($partmaxlen/10)))); // make sure that there is not to much truncated
+      $range = '{' . $partminlen . ',' . $partmaxlen . '}';
+
+      $found = preg_match('/^(.' . $range . ')[' . PREG_CLASS_UNICODE_WORD_BOUNDARY . '].*[' . PREG_CLASS_UNICODE_WORD_BOUNDARY . '](.' . $range .')$/u', $value, $matches);
+      if ($found) {
+        $value = $matches[1] . $omissionsign . $matches[2];
+      }
+      else {
+        $value = mb_substr($value, 0, $partmaxlen) . $omissionsign . mb_substr($value, -$partmaxlen);
+      }
+    }
+    elseif ($type === 'end') {
+      $value = mb_substr($value, 0, $maxlength) . $omissionsign;
     }
     elseif ($type === 'begin') {
-      $value = $omissionsign . mb_substr($value, mb_strlen($value) - $maxlength + mb_strlen($omissionsign));
+      $value = $omissionsign . mb_substr($value, mb_strlen($value) - $maxlength);
     }
     elseif ($type === 'middle') {
-      $partlen = floor(($maxlength - mb_strlen($omissionsign)) / 2);
+      $partlen = floor($maxlength / 2);
       $value = mb_substr($value, 0, $partlen) . $omissionsign . mb_substr($value, -$partlen);
     }
   }

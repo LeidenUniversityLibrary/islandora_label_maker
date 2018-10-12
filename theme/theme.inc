@@ -67,3 +67,30 @@ function theme_islandora_label_maker_config_table_drag_components($vars) {
   ));
 }
 
+function theme_islandora_label_maker_generate_table_components($vars) {
+  $element = $vars['element'];
+
+  $header = array(
+    'active' => t('Change'),
+    'newlabel' => t('Newly Generated Label'),
+    'oldlabel' => t('Old Label'),
+  );
+
+  $rows = array();
+  foreach (element_children($element) as $key) {
+    $row = array();
+    $row['data'] = array();
+    foreach ($header as $fieldname => $title) {
+      $row['data'][] = drupal_render($element[$key][$fieldname]);
+    }
+    $rows[] = $row;
+  }
+
+  $result = theme('table', array(
+    'header' => $header,
+    'rows' => $rows,
+  ));
+
+  return $result;
+}
+

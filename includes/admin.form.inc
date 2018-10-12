@@ -57,7 +57,8 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
   $form['admin']['parent_solr_fields'] = array(
     '#type' => 'textfield',
     '#title' => t('Make a new label for related items identified by these Solr fields.'),
-    '#default_value' => implode(' ', variable_get('islandora_label_maker_parent_solr_fields', array('RELS_EXT_isConstituentOf_uri_ms'))),
+    '#description' => t('Zero or more Solr fields that identify related items separated by spaces, for example: "RELS_EXT_isConstituentOf_uri_ms RELS_EXT_isPageOf_uri_ms"'),
+    '#default_value' => implode(' ', variable_get('islandora_label_maker_parent_solr_fields', array())),
     '#states' => array(
       'visible' => array(
         "input[name='change_label_on_modify']" => array("checked" => TRUE)
@@ -133,7 +134,7 @@ The label template is normal text where values between double brackets ({{ }}) a
     <P>Use the Solr fields of the parent of this item. <I>solr_field_containing_parent_id</I> should be a Solr field that contains the identifier of the parent, such as RELS_EXT_isMemberOfCollection_uri_ms. <I>something</I> can be a Solr field or an alternative.</P>
   </LI>
   <LI>truncate( <I>something</I>, <I>type</I>, <I>maximum length</I>, <I>minimum length</I> )
-    <P>Truncates the value defined by <I>something</I> to the <I>maximum length</I>. Type can be begin, end, middle or inner and defines where the truncation happens. Then type inner lets you truncate a inner value based on the outer total length.
+    <P>Truncates the value defined by <I>something</I> to the <I>maximum length</I>. Type can be begin, end, middle, wordbegin, wordend, wordmiddle or inner and defines where the truncation happens. Then type inner lets you truncate a inner value based on the outer total length.
        See examples for how to use this. The value will never be truncated past the minimum length.</P>
   </LI>
 </UL>
@@ -150,6 +151,9 @@ The label template is normal text where values between double brackets ({{ }}) a
     </LI>
     <LI>{{ truncate( glue( truncate( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), end, 200, 100 ), """ - """, mods_titleInfo_title_s ), inner, 255 ) }}
       <P>The same as above, but truncates the whole string to 255 characters at most. This is done by truncating the title of the parent to 200 characters or less, in such a way that at least 100 characters remain in the title.<BR/>Note: it is possible that the resulting string is more than 255 characters if the title is more than 155 characters long; the parent title will not be truncated to less than 100 characters, so if the title is longer than 155 the total will end up being over 255 characters long. This can be fixed by also setting a truncate to the title.</P>
+    </LI>
+    <LI>{{ truncate( glue( truncate( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), end, 200, 100 ), """ - """, mods_titleInfo_title_s ), inner, 255 ) }}
+      <P>The same as above, but truncates if possible at the word boundaries</P>
     </LI>
 </P>
 EODESC;
