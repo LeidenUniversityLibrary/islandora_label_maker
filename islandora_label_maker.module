@@ -43,9 +43,6 @@ function islandora_label_maker_menu() {
     'admin/islandora/tools/islandora_label_maker/config' => array(
       'title' => 'Configuration',
       'type' => MENU_DEFAULT_LOCAL_TASK,
-//      'page callback' => 'drupal_get_form',
-//      'page arguments' => array('islandora_label_maker_admin_form'),
-//      'file' => 'includes/admin.form.inc',
       'access arguments' => array(ISLANDORA_LABEL_MAKER_ADMIN_PERMISSION),
     ),
     'admin/islandora/tools/islandora_label_maker/pending' => array(
@@ -103,7 +100,7 @@ function islandora_label_maker_generate_label_submit(array $form, array &$form_s
  */
 function islandora_label_maker_islandora_datastream_ingested(AbstractObject $object, AbstractDatastream $datastream) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  islandora_label_maker_add_to_label_queue($object->id, $datastream->id);
+  islandora_label_maker_add_to_label_queue_if_needed($object->id, $datastream->id);
 }
 
 /**
@@ -111,7 +108,7 @@ function islandora_label_maker_islandora_datastream_ingested(AbstractObject $obj
  */
 function islandora_label_maker_islandora_datastream_modified(AbstractObject $object, AbstractDatastream $datastream) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  islandora_label_maker_add_to_label_queue($object->id, $datastream->id);
+  islandora_label_maker_add_to_label_queue_if_needed($object->id, $datastream->id);
 }
 
 /**
@@ -119,7 +116,7 @@ function islandora_label_maker_islandora_datastream_modified(AbstractObject $obj
  */
 function islandora_label_maker_islandora_datastream_purged(AbstractObject $object, $dsid) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  islandora_label_maker_add_to_label_queue($object->id, $dsid);
+  islandora_label_maker_add_to_label_queue_if_needed($object->id, $dsid);
 }
 
 /*
@@ -145,6 +142,9 @@ function islandora_label_maker_generate_label_worker($data) {
     throw new Exception("Cannot update label of object $pid, because Solr is not up-to-date yet");
   }
   islandora_label_maker_update_label_for_object_id($pid);
+  if ($data['includerelated']) {
+    islandora_label_maker_add_related_to_label_queue_if_needed($pid);
+  }
 }
 
 

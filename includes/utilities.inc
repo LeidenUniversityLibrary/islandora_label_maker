@@ -27,17 +27,41 @@ function islandora_label_maker_get_queue() {
   return $queue = DrupalQueue::get('islandora_label_maker_queue');
 }
 
-function islandora_label_maker_add_to_label_queue($objectid, $dsid = null, $time = null) {
+function islandora_label_maker_add_to_label_queue_if_needed($objectid, $dsid = null, $time = null) {
   if (variable_get('islandora_label_maker_change_label_on_modify', false)) {
     $allowed_dsids = variable_get('islandora_label_maker_datastreams_change');
     if ($dsid === null || in_array($dsid, $allowed_dsids)) {
-      $queue = islandora_label_maker_get_queue();
-      if ($time === null) {
-        $time = time();
-      }
-      $timestamp = date("Y-m-d\TH:i:s.000", $time);
-      $queue->createItem( array('object_id' => $objectid, 'timestamp' => $timestamp) );
+      islandora_label_maker_add_to_label_queue($objectid, $time);
     }
+  }
+}
+
+function islandora_label_maker_add_to_label_queue($objectid, $time = null, $includerelated = true) {
+  $queue = islandora_label_maker_get_queue();
+  if ($time === null) {
+    $time = time();
+  }
+  $timestamp = date("Y-m-d\TH:i:s.000", $time);
+  $queue->createItem( array('object_id' => $objectid, 'timestamp' => $timestamp, 'includerelated' => $includerelated) );
+}
+
+function islandora_label_maker_add_related_to_label_queue_if_needed($parentid, $time = null) {
+  $parentsolrfields = variable_get("islandora_label_maker_parent_solr_fields", array());
+  $solrquery = "";
+  foreach ($parentsolrfields as $parentsolrfield) {
+    if ($solrquery !== "") {
+      $solrquery .= ' OR ';
+    }
+    $solrquery .= "$parentsolrfield:\"$parentid\" OR $parentsolrfield:\"info:fedora/$parentid\"";
+  }
+  $qp = new IslandoraSolrQueryProcessor();
+  $qp->buildQuery($solrquery);
+  $qp->solrParams['fq'] = array(); // make sure we get all the results
+  $qp->executeQuery(false);
+  $r = $qp->islandoraSolrResult;
+  foreach ($r['response']['objects'] as $solrobj) {
+    $objectid = $solrobj['PID'];
+    islandora_label_maker_add_to_label_queue($objectid, 0, false);
   }
 }
 
@@ -322,6 +346,7 @@ function islandora_label_maker_truncate($value, $type, $maxlength, $omissionsign
 function islandora_label_maker_object_for_solr_query($query) {
   $qp = new IslandoraSolrQueryProcessor();
   $qp->buildQuery($query);
+  $qp->solrParams['fq'] = array(); // make sure we get all the results
   $qp->solrLimit = 1;
   $qp->solrStart = 0;
   $qp->executeQuery(false);

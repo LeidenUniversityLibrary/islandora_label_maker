@@ -54,6 +54,16 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
       ),
     ),
   );
+  $form['admin']['parent_solr_fields'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Make a new label for related items identified by these Solr fields.'),
+    '#default_value' => implode(' ', variable_get('islandora_label_maker_parent_solr_fields', array('RELS_EXT_isConstituentOf_uri_ms'))),
+    '#states' => array(
+      'visible' => array(
+        "input[name='change_label_on_modify']" => array("checked" => TRUE)
+      ),
+    ),
+  );
   $form['admin']['label_configs'] = array(
     '#theme_wrappers' => array('fieldset'),
     '#tree' => TRUE,
@@ -165,6 +175,7 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
       }
       $qp = new IslandoraSolrQueryProcessor();
       $qp->buildQuery($solrquery);
+      $qp->solrParams['fq'] = array(); // make sure we get all the results
       $qp->executeQuery(false);
       $r = $qp->islandoraSolrResult;
       if ($r === NULL) {
@@ -206,12 +217,29 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
     if (count($datastreams) == 0 || strlen($datastreams[0]) == 0) {
       form_set_error('datastreams_change', t('Fill out datastream IDs, e.g. MODS DC.'));
     }
+    if (isset($form_state['values']['parent_solr_fields']) && strlen($form_state['values']['parent_solr_fields']) > 0) {
+      $parentsolrfields = explode(' ', $form_state['values']['parent_solr_fields']);
+      if (count($parentsolrfields) > 0) {
+        foreach ($parentsolrfields as $parentsolrfield) {
+          $solrquery = "$parentsolrfield:*";
+          $qp = new IslandoraSolrQueryProcessor();
+          $qp->buildQuery($solrquery);
+          $qp->solrParams['fq'] = array(); // make sure we get all the results
+          $qp->executeQuery(false);
+          $r = $qp->islandoraSolrResult;
+          if (($r === NULL) || ($r['response']['numFound'] === "0")) {
+            form_set_error('parent_solr_fields', t('Please use existing Solr fields separated by spaces; "@field" does not exist.', array('@field' => $parentsolrfield)));
+          }
+        }
+      }
+    }
   }
 }
 
 function islandora_label_maker_admin_form_submit(array $form, array &$form_state) {
   variable_set('islandora_label_maker_change_label_on_modify', $form_state['values']['change_label_on_modify']);
   variable_set('islandora_label_maker_datastreams_change', explode(' ', $form_state['values']['datastreams_change']));
+  variable_set('islandora_label_maker_parent_solr_fields', explode(' ', $form_state['values']['parent_solr_fields']));
   $vscounter = 1;
   $labelconfigs = array_values($form_state['values']['label_configs']);
   usort($labelconfigs, 'drupal_sort_weight');

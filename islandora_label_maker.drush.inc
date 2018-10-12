@@ -44,6 +44,7 @@ function islandora_label_maker_drush_command() {
     'description' => 'Adds the items to the queue, to be generated later.',
     'options' => array(
       'ids_file' => 'The absolute filepath to a file containing a list of Islandora identifiers that will be used.',
+      'include_related' => 'Optionally, also add the related items to the queue',
     ),
     'aliases' => array('ilmqueue'),
     'examples' => array(
@@ -154,12 +155,19 @@ function drush_islandora_label_maker_list() {
 function drush_islandora_label_maker_queue() {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
 
+  if (!variable_get('islandora_label_maker_change_label_on_modify', false)) {
+    if (!drush_confirm(t("Automatic label generation is disabled in the configuration. Are you sure you want to manually add these ids to the queue and make new labels for them?"))) {
+      drush_user_abort();
+    }
+  }
+
   $idsfile = drush_get_option('ids_file');
+  $includerelated = drush_get_option('include_related', false);
 
   $ids = islandora_label_maker_ids_from_file($idsfile);
 
   foreach ($ids as $id) {
-    islandora_label_maker_add_to_label_queue($id, null, 0);
+    islandora_label_maker_add_to_label_queue($id, 0, $includerelated);
   }
 }
 
