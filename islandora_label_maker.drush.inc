@@ -30,7 +30,8 @@ function islandora_label_maker_drush_command() {
     'description' => 'List the new labels for the identifiers. If the label can not be made, an error is generated.',
     'options' => array(
       'ids_file' => 'The absolute filepath to a file containing a list of Islandora identifiers that will be used.',
-      'format' => 'Optionally, the format of the output. Allowed values are: identifier, oldlabel, newlabel. Other values will be unchanged. Defaults to identifier;newlabel;oldlabel', 
+      'format' => 'Optionally, the format of the output. Allowed values are: identifier, oldlabel, newlabel. Other values will be unchanged. Defaults to identifier;newlabel;oldlabel',
+      'include_related' => 'Optionally, also add the related items to the queue',
       'skip_unchanged' => 'Optionally, skip when the new label is the same as the old label',
       'silent' => 'Optionally, does not report when a label can not be made.',
     ),
@@ -56,6 +57,7 @@ function islandora_label_maker_drush_command() {
     'description' => 'Updates the labels for the identifiers. If the label can not be made, an error is generated. Only run this when you are sure!',
     'options' => array(
       'ids_file' => 'The absolute filepath to a file containing a list of Islandora identifiers that will be used.',
+      'include_related' => 'Optionally, also add the related items to the queue',
       'silent' => 'Optionally, does not report when a label can or should not be updated.',
     ),
     'aliases' => array('ilmupdate'),
@@ -105,48 +107,61 @@ function drush_islandora_label_maker_list() {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
 
   $idsfile = drush_get_option('ids_file');
+  $includerelated = drush_get_option('include_related', false);
   $skipunchanged = drush_get_option('skip_unchanged', false);
   $silent = drush_get_option('silent', false);
 
   $ids = islandora_label_maker_ids_from_file($idsfile);
 
   $columns = explode(';', drush_get_option('format', 'identifier;newlabel;oldlabel'));
-  $columns = array_combine($columns, $columns); 
+  $columns = array_combine($columns, $columns);
 
   $f = fopen('php://stdout', 'w');
 
   foreach ($ids as $id) {
-    $newlabel = islandora_label_maker_label_for_object_id($id);
-    if ($newlabel === false) {
-      if (!$silent) {
-        drush_log(t("Cannot generate label for @id", array('@id' => $id)), 'warning'); 
+    islandora_label_maker_putcsv_columns_for_id($f, $columns, $id, $skipunchanged, $silent);
+    if ($includerelated) {
+      $related = islandora_label_maker_related_solrobj_for_object($id);
+      foreach ($related as $solrrel) {
+        $relid = $solrrel['PID'];
+        islandora_label_maker_putcsv_columns_for_id($f, $columns, $relid, $skipunchanged, $silent);
       }
-      continue;
-    }
-    $fields = $columns;
-    $object = null;
-    if ($skipunchanged) {
-      $object = islandora_object_load($id);
-      if ($object->label === $newlabel) {
-        continue;
-      }
-    }
-    if (isset($columns['oldlabel'])) {
-      if (!isset($object)) {
-        $object = islandora_object_load($id);
-      }
-      $fields['oldlabel'] = $object->label;
-    }
-    if (isset($columns['identifier'])) {
-      $fields['identifier'] = $id;
-    }
-    $fields['newlabel'] = $newlabel;
-
-    if (fputcsv($f, $fields, ';') === false) {
-      return false;
     }
   }
   fclose($f);
+}
+
+function islandora_label_maker_putcsv_columns_for_id($f, $columns, $id, $skipunchanged = false, $silent = false) {
+  $newlabel = islandora_label_maker_label_for_object_id($id);
+  if ($newlabel === false) {
+    if (!$silent) {
+      drush_log(t("Cannot generate label for @id", array('@id' => $id)), 'warning');
+    }
+    return true;
+  }
+  $fields = $columns;
+  $object = null;
+  if ($skipunchanged) {
+    $object = islandora_object_load($id);
+    if ($object->label === $newlabel) {
+      return true;
+    }
+  }
+  if (isset($columns['oldlabel'])) {
+    if (!isset($object)) {
+      $object = islandora_object_load($id);
+    }
+    $fields['oldlabel'] = $object->label;
+  }
+  if (isset($columns['identifier'])) {
+    $fields['identifier'] = $id;
+  }
+  $fields['newlabel'] = $newlabel;
+
+  if (fputcsv($f, $fields, ';') === false) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -179,29 +194,40 @@ function drush_islandora_label_maker_update() {
 
   $idsfile = drush_get_option('ids_file');
   $silent = drush_get_option('silent', false);
+  $includerelated = drush_get_option('include_related', false);
 
   $ids = islandora_label_maker_ids_from_file($idsfile);
 
   foreach ($ids as $id) {
-    $result = islandora_label_maker_update_label_for_object_id($id); 
-    if ($result === false) {
-      if (!$silent) {
-        drush_log(t("Cannot generate label for @id", array('@id' => $id)), 'warning'); 
-      }
-    }
-    else {
-      if ($result['oldlabel'] === $result['newlabel']) {
-        if (!$silent) {
-          drush_log(t("Label for @id is already up-to-date.", array('@id' => $id)));
-        }
-      } 
-      else {
-        drush_log(t("Changed label for @id from '@oldlabel' to '@newlabel'.", array('@id' => $id, '@oldlabel' => $result['oldlabel'], '@newlabel' => $result['newlabel'])));
+    islandora_label_maker_drush_update_label_for_object_id($id, $silent);
+    if ($includerelated) {
+      $related = islandora_label_maker_related_solrobj_for_object($id);
+      foreach ($related as $solrrel) {
+        $relid = $solrrel['PID'];
+        islandora_label_maker_drush_update_label_for_object_id($relid, $silent);
       }
     }
   }
 }
 
+function islandora_label_maker_drush_update_label_for_object_id($id, $silent) {
+  $result = islandora_label_maker_update_label_for_object_id($id);
+  if ($result === false) {
+    if (!$silent) {
+      drush_log(t("Cannot generate label for @id", array('@id' => $id)), 'warning');
+    }
+  }
+  else {
+    if ($result['oldlabel'] === $result['newlabel']) {
+      if (!$silent) {
+        drush_log(t("Label for @id is already up-to-date.", array('@id' => $id)));
+      }
+    }
+    else {
+      drush_log(t("Changed label for @id from '@oldlabel' to '@newlabel'.", array('@id' => $id, '@oldlabel' => $result['oldlabel'], '@newlabel' => $result['newlabel'])));
+    }
+  }
+}
 
 function islandora_label_maker_ids_from_file($idsfile) {
   $foundids = array();
