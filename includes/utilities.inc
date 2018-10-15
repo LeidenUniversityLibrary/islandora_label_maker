@@ -62,6 +62,9 @@ function islandora_label_maker_related_solrobj_for_object($parentid) {
   $qp = new IslandoraSolrQueryProcessor();
   $qp->buildQuery($solrquery);
   $qp->solrParams['fq'] = array(); // make sure we get all the results
+  $qp->solrStart = 0;
+  $qp->solrLimit = 10000;
+  $qp->solrParams['fl'] = 'PID';
   $qp->executeQuery(false);
   $r = $qp->islandoraSolrResult;
 
