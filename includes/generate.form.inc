@@ -88,6 +88,11 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
     '#submit' => array('islandora_label_maker_generate_form_submit'),
     '#validate' => array('islandora_label_maker_generate_form_validate'),
   );
+  $form['admin']['cancel'] = array(
+    '#type' => 'submit',
+    '#value' => t('Cancel'),
+    '#submit' => array('islandora_label_maker_generate_form_cancel'),
+  );
 
   return $form;
 }
@@ -121,5 +126,9 @@ function islandora_label_maker_generate_form_submit(array $form, array &$form_st
   else {
     drupal_set_message(t("No labels changed."));
   }
+  $form_state['redirect'] = "islandora/object/{$form_state['values']['pid']}/manage/properties";
+}
+
+function islandora_label_maker_generate_form_cancel(array $form, array &$form_state) {
   $form_state['redirect'] = "islandora/object/{$form_state['values']['pid']}/manage/properties";
 }
