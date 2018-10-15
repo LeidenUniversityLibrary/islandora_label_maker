@@ -78,7 +78,7 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
       '#maxlength' => 255,
     );
     $element['oldlabel'] = array(
-      '#markup' => $label['oldlabel'],
+      '#markup' => '<SPAN style="display: inline-block; min-width:40em;">' . $label['oldlabel'] . '</SPAN>',
     );
   }
 
