@@ -95,9 +95,12 @@ function islandora_label_maker_theme($existing, $type, $theme, $path) {
  * Implements hook_form_alter().
  */
 function islandora_label_maker_form_islandora_object_properties_form_alter(&$form, &$form_state, $form_id) {
+  module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
+  $objectid = isset($form_state['object'])?$form_state['object']->id:'';
+  $related = islandora_label_maker_related_solrobj_for_object($objectid);
   $form['admin']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Generate new label...'),
+    '#value' => (count($related) > 0)?t('Generate new labels'):t('Generate new label...'),
     '#submit' => array('islandora_label_maker_goto_generate_label_submit'),
     '#limit_validation_errors' => array(array('pid')),
   );

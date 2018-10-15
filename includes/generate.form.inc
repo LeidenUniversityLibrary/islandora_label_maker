@@ -51,14 +51,14 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
 
   $form['generate'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Generate New Label'),
+    '#title' => (count($related) > 0)?t('Generate New Labels'):t('Generate New Label'),
     '#collapsible' => false,
   );
 
   $form['generate']['table'] = array(
     '#theme_wrappers' => array('fieldset'),
     '#tree' => TRUE,
-    '#title' => t('Labels'),
+    '#title' => t(''),
     '#theme' => 'islandora_label_maker_generate_table_components',
   );
   
