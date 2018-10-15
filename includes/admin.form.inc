@@ -78,16 +78,16 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
       '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_active'),
     );
     $element['solr_query'] = array(
-      '#type' => 'textfield',
+      '#type' => 'textarea',
       '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_solr_query'),
-      '#size' => 100,
-      '#maxlength' => 500,
+      '#cols' => 70,
+      '#rows' => 5,
     );
     $element['label_template'] = array(
-      '#type' => 'textfield',
+      '#type' => 'textarea',
       '#default_value' => variable_get('islandora_label_maker_label_config_' . $i . '_label_template'),
-      '#size' => 135,
-      '#maxlength' => 500,
+      '#cols' => 70,
+      '#rows' => 5,
     );
     $element['weight'] = array(
       '#type' => 'textfield',
@@ -161,8 +161,8 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
   $solrlabelfield = variable_get('islandora_solr_object_label_field', 'fgs_label_s');
   $haslabelconfig = false;
   for ($i = 1; $i <= number_of_label_configs() + 1; $i++) {
-    $solrquery = $form_state['values']['label_configs']["group_$i"]['solr_query'];
-    $labeltemplate = $form_state['values']['label_configs']["group_$i"]['label_template'];
+    $solrquery = str_replace(array("\r\n", "\r", "\n"), ' ', $form_state['values']['label_configs']["group_$i"]['solr_query']);
+    $labeltemplate = str_replace(array("\r\n", "\r", "\n"), ' ', $form_state['values']['label_configs']["group_$i"]['label_template']);
     $active = $form_state['values']['label_configs']["group_$i"]['active'];
 
     if (isset($solrquery) && strlen($solrquery) > 0) {

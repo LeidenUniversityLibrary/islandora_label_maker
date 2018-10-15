@@ -96,8 +96,8 @@ function islandora_label_maker_update_label_for_object_id($id) {
 function islandora_label_maker_label_for_object_id($id) {
   for ($i = 1; $i <= 99; $i++) {
     $active = variable_get('islandora_label_maker_label_config_' . $i . '_active');
-    $solrquery = variable_get('islandora_label_maker_label_config_' . $i . '_solr_query');
-    $labeltemplate = variable_get('islandora_label_maker_label_config_' . $i . '_label_template');
+    $solrquery = str_replace(array("\r\n", "\r", "\n"), ' ', variable_get('islandora_label_maker_label_config_' . $i . '_solr_query'));
+    $labeltemplate = str_replace(array("\r\n", "\r", "\n"), ' ', variable_get('islandora_label_maker_label_config_' . $i . '_label_template'));
     if (!$active) {
       continue;
     }
