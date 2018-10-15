@@ -36,7 +36,7 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
 
   $newlabels = array();
   $newlabels[$object->id] = array('oldlabel' => $object->label, 'newlabel' => islandora_label_maker_label_for_object_id($object->id));
-   
+
   $related = islandora_label_maker_related_solrobj_for_object($object->id);
   foreach ($related as $relsolrobj) {
     $relid = $relsolrobj['PID'];
@@ -61,15 +61,14 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
     '#title' => t(''),
     '#theme' => 'islandora_label_maker_generate_table_components',
   );
-  
 
   foreach ($newlabels as $id => $label) {
     $form['generate']['table'][$id] = array();
     $element =& $form['generate']['table'][$id];
-  
+
     $element['active'] = array(
       '#type' => 'checkbox',
-      '#default_value' => ($label['oldlabel'] != $label['newlabel']),
+      '#default_value' => (($label['newlabel'] !== false) && ($label['oldlabel'] != $label['newlabel'])),
     );
     $element['newlabel'] = array(
       '#type' => 'textfield',
@@ -120,7 +119,7 @@ function islandora_label_maker_generate_form_submit(array $form, array &$form_st
       if ($object && $object->label !== $newlabel) {
         $object->label = $newlabel;
         $changecount[$object->id] = $object->label;
-      } 
+      }
     }
   }
   if (count($changecount) > 0) {
