@@ -59,11 +59,6 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
     '#title' => t('Make a new label for related items identified by these Solr fields.'),
     '#description' => t('Zero or more Solr fields that identify related items separated by spaces, for example: "RELS_EXT_isConstituentOf_uri_ms RELS_EXT_isPageOf_uri_ms"'),
     '#default_value' => implode(' ', variable_get('islandora_label_maker_parent_solr_fields', array())),
-    '#states' => array(
-      'visible' => array(
-        "input[name='change_label_on_modify']" => array("checked" => TRUE)
-      ),
-    ),
   );
   $form['admin']['label_configs'] = array(
     '#theme_wrappers' => array('fieldset'),
