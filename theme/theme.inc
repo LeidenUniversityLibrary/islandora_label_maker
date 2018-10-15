@@ -74,6 +74,7 @@ function theme_islandora_label_maker_generate_table_components($vars) {
     'active' => t('Change'),
     'newlabel' => t('Newly Generated Label'),
     'oldlabel' => t('Old Label'),
+    'objectid' => t('Object'),
   );
 
   $rows = array();

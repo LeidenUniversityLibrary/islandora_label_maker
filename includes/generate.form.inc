@@ -80,6 +80,9 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
     $element['oldlabel'] = array(
       '#markup' => '<SPAN style="display: inline-block; min-width:40em;">' . $label['oldlabel'] . '</SPAN>',
     );
+    $element['objectid'] = array(
+      '#markup' => $id,
+    );
   }
 
   $form['admin']['submit'] = array(
