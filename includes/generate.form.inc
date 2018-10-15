@@ -84,7 +84,7 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
 
   $form['admin']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Change checked labels'),
+    '#value' => t('Change marked labels'),
     '#submit' => array('islandora_label_maker_generate_form_submit'),
     '#validate' => array('islandora_label_maker_generate_form_validate'),
   );
