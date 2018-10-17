@@ -337,12 +337,13 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
     elseif (isset($matches[4]) && strlen($matches[4])) {
       $result = $matches[4];
     }
-    else {
-      throw new IslandoraLabelMakerMalformedTemplateException(t("Malformed label template"));
-    }
     return $result;
   },
-  $part);
+  $part, -1, $count
+  );
+  if ($count === 0) {
+    throw new IslandoraLabelMakerMalformedTemplateException(t("Unexpected part of template found: '%part'", array("%part" => $result)));
+  }
   return $result;
 }
 
