@@ -50,7 +50,7 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
 
   $form['generate'] = array(
     '#type' => 'fieldset',
-    '#title' => format_plural(count($related), 'Generate New Label', 'Generate New Labels'),
+    '#title' => format_plural(count($related) + 1, 'Generate New Label', 'Generate New Labels'),
     '#collapsible' => FALSE,
   );
 

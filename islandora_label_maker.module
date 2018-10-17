@@ -99,7 +99,7 @@ function islandora_label_maker_form_islandora_object_properties_form_alter(&$for
   $related = islandora_label_maker_related_solrobj_for_object($objectid);
   $form['admin']['submit'] = array(
     '#type' => 'submit',
-    '#value' => format_plural(count($related), 'Generate new label...', 'Generate new labels...'),
+    '#value' => format_plural(count($related) + 1, 'Generate new label...', 'Generate new labels...'),
     '#submit' => array('islandora_label_maker_goto_generate_label_submit'),
     '#limit_validation_errors' => array(array('pid')),
   );
