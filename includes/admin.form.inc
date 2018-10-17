@@ -116,24 +116,24 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
   $form['admin']['help']['#description'] = <<<'EODESC'
 The label template is normal text where values between double brackets ({{ }}) are replaced by a calculated value. Between the double brackets any of the following is allowed:
 <UL>
-  <LI><I>solr_field</I>
+  <LI><DFN>solr_field</DFN>
     <P>The value of this Solr field is used.</P>
   </LI>
-  <LI>alternative( <I>something</I>, <I>another thing</I> )
-    <P>If <I>something</I> is not defined, use <I>another thing</I>. Can have more than 2 arguments. The last argument can be a """constant value""" (between triple quotes).</P>
+  <LI>alternative( <DFN>something</DFN>, <DFN>another thing</DFN> )
+    <P>If <DFN>something</DFN> is not defined, use <DFN>another thing</DFN>. Can have more than 2 arguments. The last argument can be a """constant value""" (between triple quotes).</P>
   </LI>
-  <LI>glue( <I>something</I>, <I>another thing</I> )
-    <P>Glues <I>something</I> and <I>another thing</I> together. Can have more than 2 arguments. Any argument can be a """constant value"""".</P>
+  <LI>glue( <DFN>something</DFN>, <DFN>another thing</DFN> )
+    <P>Glues <DFN>something</DFN> and <DFN>another thing</DFN> together. Can have more than 2 arguments. Any argument can be a """constant value"""".</P>
   </LI>
-  <LI>parent( <I>solr_field_containing_parent_id</I>, <I>something</I> )
-    <P>Use the Solr fields of the parent of this item. <I>solr_field_containing_parent_id</I> should be a Solr field that contains the identifier of the parent, such as RELS_EXT_isMemberOfCollection_uri_ms. <I>something</I> can be a Solr field or an alternative.</P>
+  <LI>parent( <DFN>solr_field_containing_parent_id</DFN>, <DFN>something</DFN> )
+    <P>Use the Solr fields of the parent of this item. <DFN>solr_field_containing_parent_id</DFN> should be a Solr field that contains the identifier of the parent, such as RELS_EXT_isMemberOfCollection_uri_ms. <DFN>something</DFN> can be a Solr field or an alternative.</P>
   </LI>
-  <LI>truncate( <I>something</I>, <I>type</I>, <I>maximum length</I>, <I>minimum length</I> )
-    <P>Truncates the value defined by <I>something</I> to the <I>maximum length</I>. Type can be begin, end, middle, wordbegin, wordend, wordmiddle or inner and defines where the truncation happens. Then type inner lets you truncate a inner value based on the outer total length.
+  <LI>truncate( <DFN>something</DFN>, <DFN>type</DFN>, <DFN>maximum length</DFN>, <DFN>minimum length</DFN> )
+    <P>Truncates the value defined by <DFN>something</DFN> to the <DFN>maximum length</DFN>. Type can be begin, end, middle, wordbegin, wordend, wordmiddle or inner and defines where the truncation happens. Then type inner lets you truncate a inner value based on the outer total length.
        See examples for how to use this. The value will never be truncated past the minimum length.</P>
   </LI>
-  <LI>guard( <I>something</I>, <I>Solr query</I> )
-    <P>Only uses <I>something</I> if it exists and has a value. If <I>Solr query</I> is given, the query should give a result for the current item. Use this to make sure the current item has a specific solr field: <code>specific_solr_field:*</code>. If either <I>something</I> or <I>Solr query</I> fails to give a proper result, a new label will not be made.</P>
+  <LI>guard( <DFN>something</DFN>, <DFN>Solr query</DFN> )
+    <P>Only uses <DFN>something</DFN> if it exists and has a value. If <DFN>Solr query</DFN> is given, the query should give a result for the current item. Use this to make sure the current item has a specific solr field: <code>specific_solr_field:*</code>. If either <DFN>something</DFN> or <DFN>Solr query</DFN> fails to give a proper result, a new label will not be made.</P>
   </LI>
 </UL>
 <P><EM>Examples</EM>
