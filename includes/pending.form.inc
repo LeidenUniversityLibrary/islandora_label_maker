@@ -8,8 +8,8 @@
  *
  *  This file is part of islandora_label_maker.
  *
- *  islandora_label_maker is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  islandora_label_maker is free software: you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
@@ -20,7 +20,6 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
 
@@ -47,7 +46,7 @@ function islandora_label_maker_pending_form(array $form, array &$form_state) {
     '#type' => 'fieldset',
     '#title' => t('Islandora Label Maker Pending Labels'),
     '#description' => $description,
-    '#collapsible' => false,
+    '#collapsible' => FALSE,
   );
 
   $form['admin']['spacer'] = array(
@@ -63,6 +62,11 @@ function islandora_label_maker_pending_form(array $form, array &$form_state) {
   return $form;
 }
 
+/**
+ * Submit of a form.
+ *
+ * @see drupal_get_form
+ */
 function islandora_label_maker_pending_form_submit(array $form, array &$form_state) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
 
@@ -73,13 +77,13 @@ function islandora_label_maker_pending_form_submit(array $form, array &$form_sta
     $itemsdone = 0;
     $func = $info['worker callback'];
     $starttime = time();
-    $allowedtime = (isset($info['time'])?$info['time']:10);
+    $allowedtime = (isset($info['time']) ? $info['time'] : 10);
     $endtime = $starttime + $allowedtime;
     $queue = DrupalQueue::get($queuename);
     if ($queue) {
       while ((time() < $endtime) && ($item = $queue->claimItem())) {
         try {
-          $func($item->data); 
+          $func($item->data);
           $queue->deleteItem($item);
           $itemsdone++;
         }

@@ -8,8 +8,8 @@
  *
  *  This file is part of islandora_label_maker.
  *
- *  islandora_label_maker is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  islandora_label_maker is free software: you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
@@ -20,8 +20,8 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
+
 /**
  * Implements hook_drush_command().
  */
@@ -90,6 +90,9 @@ function drush_islandora_label_maker_update_validate() {
   return _islandora_label_maker_drush_validate();
 }
 
+/**
+ * Helper function for validation.
+ */
 function _islandora_label_maker_drush_validate() {
   $idsfile = drush_get_option('ids_file');
   if (!isset($idsfile)) {
@@ -107,9 +110,9 @@ function drush_islandora_label_maker_list() {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
 
   $idsfile = drush_get_option('ids_file');
-  $includerelated = drush_get_option('include_related', false);
-  $skipunchanged = drush_get_option('skip_unchanged', false);
-  $silent = drush_get_option('silent', false);
+  $includerelated = drush_get_option('include_related', FALSE);
+  $skipunchanged = drush_get_option('skip_unchanged', FALSE);
+  $silent = drush_get_option('silent', FALSE);
 
   $ids = islandora_label_maker_ids_from_file($idsfile);
 
@@ -131,20 +134,37 @@ function drush_islandora_label_maker_list() {
   fclose($f);
 }
 
-function islandora_label_maker_putcsv_columns_for_id($f, $columns, $id, $skipunchanged = false, $silent = false) {
+/**
+ * Helper function for printing of CSV line to file pointer.
+ *
+ * @param resource $f
+ *   A file pointer to write to.
+ * @param array $columns
+ *   An associated array containing column names for both keys and values.
+ * @param string $id
+ *   The id of the object used.
+ * @param bool $skipunchanged
+ *   If TRUE, don't write anything if the new label is the same as the old.
+ * @param bool $silent
+ *   If TRUE, does not log when the label cannot be generated.
+ *
+ * @return bool
+ *   True if handled succesfully, FALSE if printing failed.
+ */
+function islandora_label_maker_putcsv_columns_for_id($f, $columns, $id, $skipunchanged = FALSE, $silent = FALSE) {
   $newlabel = islandora_label_maker_label_for_object_id($id);
-  if ($newlabel === false) {
+  if ($newlabel === FALSE) {
     if (!$silent) {
       drush_log(t("Cannot generate label for @id", array('@id' => $id)), 'warning');
     }
-    return true;
+    return TRUE;
   }
   $fields = $columns;
-  $object = null;
+  $object = NULL;
   if ($skipunchanged) {
     $object = islandora_object_load($id);
     if ($object->label === $newlabel) {
-      return true;
+      return TRUE;
     }
   }
   if (isset($columns['oldlabel'])) {
@@ -158,10 +178,10 @@ function islandora_label_maker_putcsv_columns_for_id($f, $columns, $id, $skipunc
   }
   $fields['newlabel'] = $newlabel;
 
-  if (fputcsv($f, $fields, ';') === false) {
-    return false;
+  if (fputcsv($f, $fields, ';') === FALSE) {
+    return FALSE;
   }
-  return true;
+  return TRUE;
 }
 
 /**
@@ -170,14 +190,14 @@ function islandora_label_maker_putcsv_columns_for_id($f, $columns, $id, $skipunc
 function drush_islandora_label_maker_queue() {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
 
-  if (!variable_get('islandora_label_maker_change_label_on_modify', false)) {
+  if (!variable_get('islandora_label_maker_change_label_on_modify', FALSE)) {
     if (!drush_confirm(t("Automatic label generation is disabled in the configuration. Are you sure you want to manually add these ids to the queue and make new labels for them?"))) {
       drush_user_abort();
     }
   }
 
   $idsfile = drush_get_option('ids_file');
-  $includerelated = drush_get_option('include_related', false);
+  $includerelated = drush_get_option('include_related', FALSE);
 
   $ids = islandora_label_maker_ids_from_file($idsfile);
 
@@ -193,8 +213,8 @@ function drush_islandora_label_maker_update() {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
 
   $idsfile = drush_get_option('ids_file');
-  $silent = drush_get_option('silent', false);
-  $includerelated = drush_get_option('include_related', false);
+  $silent = drush_get_option('silent', FALSE);
+  $includerelated = drush_get_option('include_related', FALSE);
 
   $ids = islandora_label_maker_ids_from_file($idsfile);
 
@@ -210,9 +230,12 @@ function drush_islandora_label_maker_update() {
   }
 }
 
+/**
+ * Helper function for updating label.
+ */
 function islandora_label_maker_drush_update_label_for_object_id($id, $silent) {
   $result = islandora_label_maker_update_label_for_object_id($id);
-  if ($result === false) {
+  if ($result === FALSE) {
     if (!$silent) {
       drush_log(t("Cannot generate label for @id", array('@id' => $id)), 'warning');
     }
@@ -224,11 +247,21 @@ function islandora_label_maker_drush_update_label_for_object_id($id, $silent) {
       }
     }
     else {
-      drush_log(t("Changed label for @id from '@oldlabel' to '@newlabel'.", array('@id' => $id, '@oldlabel' => $result['oldlabel'], '@newlabel' => $result['newlabel'])));
+      drush_log(t(
+        "Changed label for @id from '@oldlabel' to '@newlabel'.",
+        array(
+          '@id' => $id,
+          '@oldlabel' => $result['oldlabel'],
+          '@newlabel' => $result['newlabel'],
+        )
+      ));
     }
   }
 }
 
+/**
+ * Helper function for retrieving ids from file.
+ */
 function islandora_label_maker_ids_from_file($idsfile) {
   $foundids = array();
   $idsstr = file_get_contents($idsfile);

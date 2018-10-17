@@ -8,8 +8,8 @@
  *
  *  This file is part of islandora_label_maker.
  *
- *  islandora_label_maker is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  islandora_label_maker is free software: you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
@@ -20,7 +20,6 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
 
@@ -51,14 +50,14 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
 
   $form['generate'] = array(
     '#type' => 'fieldset',
-    '#title' => (count($related) > 0)?t('Generate New Labels'):t('Generate New Label'),
-    '#collapsible' => false,
+    '#title' => format_plural(count($related), 'Generate New Label', 'Generate New Labels'),
+    '#collapsible' => FALSE,
   );
 
   $form['generate']['table'] = array(
     '#theme_wrappers' => array('fieldset'),
     '#tree' => TRUE,
-    '#title' => t(''),
+    '#title' => '',
     '#theme' => 'islandora_label_maker_generate_table_components',
   );
 
@@ -68,7 +67,7 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
 
     $element['active'] = array(
       '#type' => 'checkbox',
-      '#default_value' => (($label['newlabel'] !== false) && ($label['oldlabel'] != $label['newlabel'])),
+      '#default_value' => (($label['newlabel'] !== FALSE) && ($label['oldlabel'] != $label['newlabel'])),
     );
     $element['newlabel'] = array(
       '#type' => 'textfield',
@@ -99,6 +98,11 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
   return $form;
 }
 
+/**
+ * Validation of a form.
+ *
+ * @see drupal_get_form
+ */
 function islandora_label_maker_generate_form_validate(array $form, array &$form_state) {
   foreach ($form_state['values']['table'] as $id => $fields) {
     if ($fields['active']) {
@@ -110,6 +114,11 @@ function islandora_label_maker_generate_form_validate(array $form, array &$form_
   }
 }
 
+/**
+ * Submit of a form.
+ *
+ * @see drupal_get_form
+ */
 function islandora_label_maker_generate_form_submit(array $form, array &$form_state) {
   $changecount = array();
   foreach ($form_state['values']['table'] as $id => $fields) {
@@ -131,6 +140,9 @@ function islandora_label_maker_generate_form_submit(array $form, array &$form_st
   $form_state['redirect'] = "islandora/object/{$form_state['values']['pid']}/manage/properties";
 }
 
+/**
+ * Cancellation of a form.
+ */
 function islandora_label_maker_generate_form_cancel(array $form, array &$form_state) {
   $form_state['redirect'] = "islandora/object/{$form_state['values']['pid']}/manage/properties";
 }

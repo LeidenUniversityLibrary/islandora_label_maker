@@ -9,8 +9,8 @@
  *
  *  This file is part of islandora_label_maker.
  *
- *  islandora_label_maker is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  islandora_label_maker is free software: you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
@@ -21,11 +21,10 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
 /**
- * Returns HTML for the metadata_table_drag_components weight table.
+ * Returns HTML for the config_table_drag_components weight table.
  *
  * @param array $vars
  *   An associative array containing:
@@ -67,6 +66,19 @@ function theme_islandora_label_maker_config_table_drag_components($vars) {
   ));
 }
 
+/**
+ * Returns HTML for the generate_table_components weight table.
+ *
+ * @param array $vars
+ *   An associative array containing:
+ *   - element: Table element array.
+ *   - theme_hook_original: Initial theme hook.
+ *
+ * @return string
+ *   Themed table html.
+ *
+ * @ingroup themeable
+ */
 function theme_islandora_label_maker_generate_table_components($vars) {
   $element = $vars['element'];
 
@@ -94,4 +106,3 @@ function theme_islandora_label_maker_generate_table_components($vars) {
 
   return $result;
 }
-

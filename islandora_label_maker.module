@@ -9,8 +9,8 @@
  *
  *  This file is part of islandora_label_maker.
  *
- *  islandora_label_maker is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  islandora_label_maker is free software: you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
@@ -21,7 +21,6 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
 // Permissions.
@@ -96,11 +95,11 @@ function islandora_label_maker_theme($existing, $type, $theme, $path) {
  */
 function islandora_label_maker_form_islandora_object_properties_form_alter(&$form, &$form_state, $form_id) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
-  $objectid = isset($form_state['object'])?$form_state['object']->id:'';
+  $objectid = isset($form_state['object']) ? $form_state['object']->id : '';
   $related = islandora_label_maker_related_solrobj_for_object($objectid);
   $form['admin']['submit'] = array(
     '#type' => 'submit',
-    '#value' => (count($related) > 0)?t('Generate new labels...'):t('Generate new label...'),
+    '#value' => format_plural(count($related), 'Generate new label...', 'Generate new labels...'),
     '#submit' => array('islandora_label_maker_goto_generate_label_submit'),
     '#limit_validation_errors' => array(array('pid')),
   );
@@ -142,23 +141,29 @@ function islandora_label_maker_islandora_datastream_purged(AbstractObject $objec
   islandora_label_maker_add_to_label_queue_if_needed($object->id, $dsid);
 }
 
-/*
-* Implements hook_cron_queue_info().
-*/
+/**
+ * Implements hook_cron_queue_info().
+ */
 function islandora_label_maker_cron_queue_info() {
- $queues['islandora_label_maker_queue'] = array(
+  $queues['islandora_label_maker_queue'] = array(
     'worker callback' => 'islandora_label_maker_generate_label_worker',
     'time' => 10,
- );
- return $queues;
+  );
+  return $queues;
 }
 
+/**
+ * Worker function called from cron queue.
+ *
+ * @param array $data
+ *   The data past when the item was added to the cron queue.
+ */
 function islandora_label_maker_generate_label_worker($data) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
   $pid = $data['object_id'];
   $solrquery = "PID:\"$pid\"";
   $solrobj = islandora_label_maker_object_for_solr_query($solrquery);
-  if ($solrobj == null) {
+  if ($solrobj == NULL) {
     throw new Exception("Cannot update label of object $pid, because Solr record can not be found");
   }
   if ($solrobj['solr_doc']['timestamp'] < $data['timestamp']) {
@@ -169,5 +174,3 @@ function islandora_label_maker_generate_label_worker($data) {
     islandora_label_maker_add_related_to_label_queue_if_needed($pid, 0);
   }
 }
-
-

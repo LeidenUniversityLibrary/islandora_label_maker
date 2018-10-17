@@ -8,8 +8,8 @@
  *
  *  This file is part of islandora_label_maker.
  *
- *  islandora_label_maker is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  islandora_label_maker is free software: you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
@@ -20,7 +20,6 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
 
@@ -35,13 +34,13 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
   $form['admin'] = array(
     '#type' => 'fieldset',
     '#title' => t('Islandora Label Maker Configuration'),
-    '#collapsible' => false,
+    '#collapsible' => FALSE,
   );
 
   $form['admin']['change_label_on_modify'] = array(
     '#type' => 'checkbox',
     '#title' => t('Make a new label when any of the following datastreams change.'),
-    '#default_value' => variable_get('islandora_label_maker_change_label_on_modify', false),
+    '#default_value' => variable_get('islandora_label_maker_change_label_on_modify', FALSE),
   );
 
   $form['admin']['datastreams_change'] = array(
@@ -50,7 +49,7 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
     '#default_value' => implode(' ', variable_get('islandora_label_maker_datastreams_change', array('MODS', 'DC'))),
     '#states' => array(
       'visible' => array(
-        "input[name='change_label_on_modify']" => array("checked" => TRUE)
+        "input[name='change_label_on_modify']" => array("checked" => TRUE),
       ),
     ),
   );
@@ -110,8 +109,8 @@ function islandora_label_maker_admin_form(array $form, array &$form_state) {
   $form['admin']['help'] = array(
     '#type' => 'fieldset',
     '#title' => t('Label Template Help'),
-    '#collapsible' => true,
-    '#collapsed' => true,
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
   );
   $form['admin']['help']['#description'] = <<<'EODESC'
 The label template is normal text where values between double brackets ({{ }}) are replaced by a calculated value. Between the double brackets any of the following is allowed:
@@ -158,11 +157,16 @@ EODESC;
   return $form;
 }
 
+/**
+ * Validation of a form.
+ *
+ * @see drupal_get_form
+ */
 function islandora_label_maker_admin_form_validate(array $form, array &$form_state) {
   module_load_include('inc', 'islandora_label_maker', 'includes/utilities');
 
   $solrlabelfield = variable_get('islandora_solr_object_label_field', 'fgs_label_s');
-  $haslabelconfig = false;
+  $haslabelconfig = FALSE;
   for ($i = 1; $i <= number_of_label_configs() + 1; $i++) {
     $solrquery = str_replace(array("\r\n", "\r", "\n"), ' ', $form_state['values']['label_configs']["group_$i"]['solr_query']);
     $labeltemplate = str_replace(array("\r\n", "\r", "\n"), ' ', $form_state['values']['label_configs']["group_$i"]['label_template']);
@@ -173,12 +177,12 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
         form_set_error('label_template', t('Label configuration %item has a Solr query (%query) but not a label template.', array('%item' => $i, '%query' => $solrquery)));
       }
       else {
-        $haslabelconfig = true;
+        $haslabelconfig = TRUE;
       }
       $qp = new IslandoraSolrQueryProcessor();
       $qp->buildQuery($solrquery);
-      $qp->solrParams['fq'] = array(); // make sure we get all the results
-      $qp->executeQuery(false);
+      $qp->solrParams['fq'] = array();
+      $qp->executeQuery(FALSE);
       $r = $qp->islandoraSolrResult;
       if ($r === NULL) {
         form_set_error('solr_query', t('Label configuration %item has an invalid Solr query (%query).', array('%item' => $i, '%query' => $solrquery)));
@@ -205,7 +209,7 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
         if (preg_match('/^\s*{{\s*' . preg_quote($label, '/') . '\s*}}\s*$/', $labeltemplate) === 1) {
           form_set_error('label_template', t('Label configuration %item has a malformed label that always returns the same value, because nothing is replaced.', array('%item' => $i)));
         }
-        if ($label === false || strlen($label) === 0) {
+        if ($label === FALSE || strlen($label) === 0) {
           drupal_set_message(t('Label configuration %item has a label template that might produce no new label in some cases.', array('%item' => $i)), 'warning');
         }
       }
@@ -229,8 +233,8 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
           $solrquery = "$parentsolrfield:*";
           $qp = new IslandoraSolrQueryProcessor();
           $qp->buildQuery($solrquery);
-          $qp->solrParams['fq'] = array(); // make sure we get all the results
-          $qp->executeQuery(false);
+          $qp->solrParams['fq'] = array();
+          $qp->executeQuery(FALSE);
           $r = $qp->islandoraSolrResult;
           if (($r === NULL) || ($r['response']['numFound'] === "0")) {
             form_set_error('parent_solr_fields', t('Please use existing Solr fields separated by spaces; "@field" does not exist.', array('@field' => $parentsolrfield)));
@@ -241,6 +245,11 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
   }
 }
 
+/**
+ * Submit of a form.
+ *
+ * @see drupal_get_form
+ */
 function islandora_label_maker_admin_form_submit(array $form, array &$form_state) {
   variable_set('islandora_label_maker_change_label_on_modify', $form_state['values']['change_label_on_modify']);
   variable_set('islandora_label_maker_datastreams_change', explode(' ', $form_state['values']['datastreams_change']));
@@ -264,6 +273,9 @@ function islandora_label_maker_admin_form_submit(array $form, array &$form_state
   drupal_set_message(t('The settings have been saved!'));
 }
 
+/**
+ * Helper function to determine the number of label configurations.
+ */
 function number_of_label_configs() {
   $nr_of_configs = 0;
   for ($i = 1; $i <= 99; $i++) {
