@@ -23,6 +23,16 @@
  *
  */
 
+/**
+ * Exceptions that may occur when making a label.
+ */
+class IslandoraLabelMakerMalformedTemplateException extends Exception {
+}
+
+class IslandoraLabelMakerGuardException extends Exception {
+}
+
+
 function islandora_label_maker_get_queue() {
   return $queue = DrupalQueue::get('islandora_label_maker_queue');
 }
@@ -105,10 +115,7 @@ function islandora_label_maker_label_for_object_id($id) {
        $query = "PID:\"$id\" AND $solrquery";
        $solrobj = islandora_label_maker_object_for_solr_query($query);
        if ($solrobj !== null) {
-         $result = islandora_label_maker_label_for_solr_object($solrobj, $labeltemplate);
-         if ($result !== false) {
-           return $result;
-         }
+         return islandora_label_maker_label_for_solr_object($solrobj, $labeltemplate);
        }
     }
     else {
@@ -120,14 +127,20 @@ function islandora_label_maker_label_for_object_id($id) {
 
 function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
   $truncates = array();
-  $label = preg_replace_callback(
-    '/{{\s*(.+?)\s*}}/',
-    function($matches) use ($solrdoc, &$truncates) {
-      $part = $matches[1];
-      return islandora_label_maker_replace_part($part, $solrdoc, $truncates);
-    },
-    $labeltemplate
-  );
+  try {
+    $label = preg_replace_callback(
+      '/{{\s*(.+?)\s*}}/',
+      function($matches) use ($solrdoc, &$truncates) {
+        $part = $matches[1];
+        return islandora_label_maker_replace_part($part, $solrdoc, $truncates);
+      },
+      $labeltemplate
+    );
+  }
+  catch (IslandoraLabelMakerGuardException $e) {
+    $label = false;
+    $truncates = array();
+  }
   foreach (array_reverse($truncates) as $rep) {
     $order = $rep['order'];
     $type = $rep['type'];
@@ -208,7 +221,7 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
     );
   }
   $label = trim($label);
-  if (strlen($label) === 0) {
+  if ($label === false || strlen($label) === 0) {
     return false;
   }
   return $label;
@@ -230,7 +243,7 @@ function islandora_label_maker_value_from_solrdoc($solrfield, $solrdoc) {
 
 function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
   $result = preg_replace_callback(
-  '/^\s*(?:([a-zA-Z0-9_.]+)|(truncate|parent|alternative|glue)\((.+)\)|"""(.*?)""")\s*$/',
+  '/^\s*(?:([a-zA-Z0-9_.]+)|(truncate|parent|alternative|glue|guard)\((.+)\)|"""(.*?)""")\s*$/',
   function($matches) use ($solrdoc, &$truncates, $part) {
     $result = '';
     if (isset($matches[1]) && strlen($matches[1])) {
@@ -245,19 +258,19 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
         $max = (isset($args[2])?intval($args[2]):255);
         $min = (isset($args[3])?intval($args[3]):0);
         if (count($args) > 4) {
-          throw new Exception(t("truncate() has too many arguments, expecting 3 but found @argscount: %args", array('@argscount' => count($args), '%args' => implode(',', $args))));
+          throw new IslandoraLabelMakerMalformedTemplateException(t("truncate() has too many arguments, expecting 3 but found @argscount: %args", array('@argscount' => count($args), '%args' => implode(',', $args))));
         }
         if (count($args) < 3) {
-          throw new Exception(t("truncate() has too little arguments, expecting at least 3"));
+          throw new IslandoraLabelMakerMalformedTemplateException(t("truncate() has too little arguments, expecting at least 3"));
         }
         if (!in_array($args[1], array('wordend','wordbegin','wordmiddle','end','begin','middle','inner'))) {
-          throw new Exception(t("truncate() second argument should be wordbegin, wordend, wordmiddle, begin, end, middle or inner, but is: %arg", array('%arg' => $args[1])));
+          throw new IslandoraLabelMakerMalformedTemplateException(t("truncate() second argument should be wordbegin, wordend, wordmiddle, begin, end, middle or inner, but is: %arg", array('%arg' => $args[1])));
         }
         if (count($args) > 2 && ($max < 0)) {
-          throw new Exception(t("truncate() third argument should be a positive number, but found %arg", array('%arg' => $args[2])));
+          throw new IslandoraLabelMakerMalformedTemplateException(t("truncate() third argument should be a positive number, but found %arg", array('%arg' => $args[2])));
         }
         if (count($args) > 3 && ($min >= $max)) {
-          throw new Exception(t("truncate() fourth argument should be a positive number smaller than the third argument, but found %arg", array('%arg' => $args[3])));
+          throw new IslandoraLabelMakerMalformedTemplateException(t("truncate() fourth argument should be a positive number smaller than the third argument, but found %arg", array('%arg' => $args[3])));
         }
         $value = islandora_label_maker_replace_part($args[0], $solrdoc, $truncates);
         $order = count($truncates) + 1;
@@ -267,7 +280,7 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
       }
       elseif ($func === 'parent') {
         if (count($args) != 2) {
-          throw new Exception(t("parent() should have two arguments (the solr field containing the parent identifier and the value to use from the parent) but found @argscount: %args", array('@argscount' => count($args), '%args' => implode(',', $args))));
+          throw new IslandoraLabelMakerMalformedTemplateException(t("parent() should have two arguments (the solr field containing the parent identifier and the value to use from the parent) but found @argscount: %args", array('@argscount' => count($args), '%args' => implode(',', $args))));
         }
         $parentid = islandora_label_maker_replace_part($args[0], $solrdoc, $truncates);
         $parentid = str_replace('info:fedora/', '', $parentid);
@@ -278,7 +291,7 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
       }
       elseif ($func === 'alternative') {
         if (count($args) < 2) {
-          throw new Exception(t("alternative() should have at least two arguments"));
+          throw new IslandoraLabelMakerMalformedTemplateException(t("alternative() should have at least two arguments"));
         }
         foreach ($args as $arg) {
           $value = islandora_label_maker_replace_part($arg, $solrdoc, $truncates);
@@ -290,7 +303,7 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
       }
       elseif ($func === 'glue') {
         if (count($args) < 2) {
-          throw new Exception(t("glue() should have at least two arguments"));
+          throw new IslandoraLabelMakerMalformedTemplateException(t("glue() should have at least two arguments"));
         }
         foreach ($args as $arg) {
           $value = islandora_label_maker_replace_part($arg, $solrdoc, $truncates);
@@ -299,12 +312,33 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
           }
         }
       }
+      elseif ($func === 'guard') {
+        if (count($args) == 0 || count($args) > 2) {
+          throw new IslandoraLabelMakerMalformedTemplateException(t("guard() should have one or two arguments (the solr field and optionally a Solr query) but found @argscount: %args", array('@argscount' => count($args), '%args' => implode(',', $args))));
+        }
+        if (count($args) == 2 && strlen($args[1]) < 3) {
+          throw new IslandoraLabelMakerMalformedTemplateException(t("guard() second argument should be a valid Solr query, but found: %arg", array('%arg' => $args[1])));
+        }
+        $value = islandora_label_maker_replace_part($args[0], $solrdoc, $truncates);
+        if ($value === false || strlen($value) === 0) {
+          throw new IslandoraLabelMakerGuardException("No value found");
+        }
+        if (count($args) == 2) {
+          $objectid = $solrdoc['PID'];
+          $query = "PID:\"$objectid\" AND $args[1]";
+          $solrobj = islandora_label_maker_object_for_solr_query($query);
+          if ($solrobj === null) {
+            throw new IslandoraLabelMakerGuardException("Solr query '$query' found no objects");
+          }
+        }
+        $result = $value;
+      }
     }
     elseif (isset($matches[4]) && strlen($matches[4])) {
       $result = $matches[4];
     }
     else {
-      throw new Exception(t("malformed label template"));
+      throw new IslandoraLabelMakerMalformedTemplateException(t("Malformed label template"));
     }
     return $result;
   },
@@ -335,10 +369,10 @@ function islandora_label_maker_args_split($argstr) {
   }
   $args[] = trim($carg);
   if ($brackets > 0) {
-    throw new Exception("Too many opening brackets in $argstr");
+    throw new IslandoraLabelMakerMalformedTemplateException("Too many opening brackets in $argstr");
   }
   if ($brackets < 0) {
-    throw new Exception("Too many closing brackets in $argstr");
+    throw new IslandoraLabelMakerMalformedTemplateException("Too many closing brackets in $argstr");
   }
 
   return $args;

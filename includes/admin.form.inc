@@ -132,6 +132,9 @@ The label template is normal text where values between double brackets ({{ }}) a
     <P>Truncates the value defined by <I>something</I> to the <I>maximum length</I>. Type can be begin, end, middle, wordbegin, wordend, wordmiddle or inner and defines where the truncation happens. Then type inner lets you truncate a inner value based on the outer total length.
        See examples for how to use this. The value will never be truncated past the minimum length.</P>
   </LI>
+  <LI>guard( <I>something</I>, <I>Solr query</I> )
+    <P>Only uses <I>something</I> if it exists and has a value. If <I>Solr query</I> is given, the query should give a result for the current item. Use this to make sure the current item has a specific solr field: <code>specific_solr_field:*</code>. If either <I>something</I> or <I>Solr query</I> fails to give a proper result, a new label will not be made.</P>
+  </LI>
 </UL>
 <P><EM>Examples</EM>
   <UL>
@@ -147,8 +150,8 @@ The label template is normal text where values between double brackets ({{ }}) a
     <LI>{{ truncate( glue( truncate( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), end, 200, 100 ), """ - """, mods_titleInfo_title_s ), inner, 255 ) }}
       <P>The same as above, but truncates the whole string to 255 characters at most. This is done by truncating the title of the parent to 200 characters or less, in such a way that at least 100 characters remain in the title.<BR/>Note: it is possible that the resulting string is more than 255 characters if the title is more than 155 characters long; the parent title will not be truncated to less than 100 characters, so if the title is longer than 155 the total will end up being over 255 characters long. This can be fixed by also setting a truncate to the title.</P>
     </LI>
-    <LI>{{ truncate( glue( truncate( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), end, 200, 100 ), """ - """, mods_titleInfo_title_s ), inner, 255 ) }}
-      <P>The same as above, but truncates if possible at the word boundaries</P>
+    <LI>{{ truncate( glue( truncate( parent( RELS_EXT_isMemberOf_uri_s, guard( mods_titleInfo_title_s ) ), end, 200, 100 ), """ - """, guard( mods_titleInfo_title_s, mods_titleInfo_title_s:part* ) ), inner, 255 ) }}
+      <P>The same as above, but truncates if possible at the word boundaries. And makes sure that the Solr fields used have expected values, otherwise fails and no label is made.</P>
     </LI>
 </P>
 EODESC;
@@ -199,12 +202,15 @@ function islandora_label_maker_admin_form_validate(array $form, array &$form_sta
           $solrdoc = $r['response']['objects'][0];
         }
         $label = islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate);
-        if (strlen($label) === 0 || $label === $labeltemplate) {
-          form_set_error('label_template', t('Label configuration %item has a label template that will produce unexpected results in some cases.', array('%item' => $i)));
+        if (preg_match('/^\s*{{\s*' . preg_quote($label, '/') . '\s*}}\s*$/', $labeltemplate) === 1) {
+          form_set_error('label_template', t('Label configuration %item has a malformed label that always returns the same value, because nothing is replaced.', array('%item' => $i)));
+        }
+        if ($label === false || strlen($label) === 0) {
+          drupal_set_message(t('Label configuration %item has a label template that might produce no new label in some cases.', array('%item' => $i)), 'warning');
         }
       }
-      catch (Exception $e) {
-        form_set_error('label_template', t('Label configuration %item has a malformatted label template: !error.', array('%item' => $i, '!error' => $e->getMessage())));
+      catch (IslandoraLabelMakerMalformedTemplateException $e) {
+        form_set_error('label_template', t('Label configuration %item has a malformed label template: !error.', array('%item' => $i, '!error' => $e->getMessage())));
       }
     }
   }
