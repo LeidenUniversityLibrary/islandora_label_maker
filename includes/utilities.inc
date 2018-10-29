@@ -354,7 +354,7 @@ function islandora_label_maker_value_from_solrdoc($solrfield, $solrdoc) {
  */
 function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
   $result = preg_replace_callback(
-  '/^\s*(?:([a-zA-Z0-9_.]+)|(truncate|parent|alternative|glue|guard)\((.+)\)|"""(.*?)""")\s*$/',
+  '/^\s*(?:([a-zA-Z0-9_.]+)|(truncate|parent|alternative|glue|guard|order)\((.+)\)|"""(.*?)""")\s*$/',
   function($matches) use ($solrdoc, &$truncates, $part) {
     $result = '';
     if (isset($matches[1]) && strlen($matches[1])) {
@@ -478,6 +478,53 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
           }
         }
         $result = $value;
+      }
+      elseif ($func === 'order') {
+        if (count($args) != 1 || !in_array($args[0], array('book', 'newspaper', 'compound'))) {
+          throw new IslandoraLabelMakerMalformedTemplateException(t(
+            "order() should have one argument (indicating the type of parent: book, newspaper, compound) but found @argscount: %args",
+            array('@argscount' => count($args), '%args' => implode(',', $args))
+          ));
+        }
+        $parenttype = $args[0];
+        if ($parenttype === 'book') {
+          if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities')) {
+            $objectid = islandora_label_maker_value_from_solrdoc('RELS_EXT_isPageOf_uri_ms', $solrdoc);
+            $objectid = str_replace('info:fedora/', '', $objectid);
+            $object = islandora_object_load($objectid);
+            $pages = islandora_paged_content_get_pages($object);
+            if (isset($pages[$solrdoc['PID']])) {
+              $result = ltrim($pages[$solrdoc['PID']]['page'], '0');
+            }
+          }
+        }
+        elseif ($parenttype === 'newspaper') {
+          if (module_load_include('inc', 'islandora_newspaper', 'includes/utilities')) {
+            $objectid = $solrdoc['PID'];
+            $object = islandora_object_load($objectid);
+            $seq = islandora_newspaper_get_current_sequence($object);
+            if ($seq !== FALSE) {
+              $result = $seq;
+            }
+          }
+        }
+        elseif ($parenttype === 'compound') {
+          if (drupal_load('module', 'islandora_compound_object')) {
+            $objectid = islandora_label_maker_value_from_solrdoc('RELS_EXT_isConstituentOf_uri_ms', $solrdoc);
+            $objectid = str_replace('info:fedora/', '', $objectid);
+            $object = islandora_object_load($objectid);
+            $children = islandora_compound_object_get_parts($object, TRUE);
+            if (isset($children[$solrdoc['PID']])) {
+              $result = $children[$solrdoc['PID']]['seq'];
+            }
+          }
+        }
+        else {
+          throw new IslandoraLabelMakerMalformedTemplateException(t(
+            "order() should have one argument (indicating the type of parent: book, newspaper, compound) but found @argscount: %args",
+            array('@argscount' => count($args), '%args' => implode(',', $args))
+          ));
+        }
       }
     }
     elseif (isset($matches[4]) && strlen($matches[4])) {

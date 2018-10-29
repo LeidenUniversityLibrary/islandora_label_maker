@@ -134,6 +134,9 @@ The label template is normal text where values between double brackets ({{ }}) a
   <LI>guard( <DFN>something</DFN>, <DFN>Solr query</DFN> )
     <P>Only uses <DFN>something</DFN> if it exists and has a value. If <DFN>Solr query</DFN> is given, the query should give a result for the current item. Use this to make sure the current item has a specific solr field: <code>specific_solr_field:*</code>. If either <DFN>something</DFN> or <DFN>Solr query</DFN> fails to give a proper result, a new label will not be made.</P>
   </LI>
+  <LI>order( <DFN>type</DFN> )
+    <P>Returns the order within the specific <DFN>type</DFN> of this object. <DFN>type</DFN> can be either book, compound or newspaper.</P>
+  </LI>
 </UL>
 <P><EM>Examples</EM>
   <UL>
@@ -144,13 +147,16 @@ The label template is normal text where values between double brackets ({{ }}) a
       <P>Use the title from the MODS as the label of the object, but if it does not exist use the title from the Dublin Core, or if that does not exist use "No title" (without the quotes).</P>
     </LI>
     <LI>{{ glue( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), """ - """, mods_titleInfo_title_s ) }}
-      <P>Use the title from the MODS of the parent, combined with " -" and the title from the MODS as the label of the object</P>
+      <P>Use the title from the MODS of the parent, combined with " - " and the title from the MODS as the label of the object</P>
     </LI>
     <LI>{{ truncate( glue( truncate( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), end, 200, 100 ), """ - """, mods_titleInfo_title_s ), inner, 255 ) }}
       <P>The same as above, but truncates the whole string to 255 characters at most. This is done by truncating the title of the parent to 200 characters or less, in such a way that at least 100 characters remain in the title.<BR/>Note: it is possible that the resulting string is more than 255 characters if the title is more than 155 characters long; the parent title will not be truncated to less than 100 characters, so if the title is longer than 155 the total will end up being over 255 characters long. This can be fixed by also setting a truncate to the title.</P>
     </LI>
     <LI>{{ truncate( glue( truncate( parent( RELS_EXT_isMemberOf_uri_s, guard( mods_titleInfo_title_s ) ), end, 200, 100 ), """ - """, guard( mods_titleInfo_title_s, mods_titleInfo_title_s:part* ) ), inner, 255 ) }}
       <P>The same as above, but truncates if possible at the word boundaries. And makes sure that the Solr fields used have expected values, otherwise fails and no label is made.</P>
+    </LI>
+    <LI>{{ glue( parent( RELS_EXT_isMemberOf_uri_s, mods_titleInfo_title_s ), """ - """, """part """, order(compound) ) }}
+      <P>Use the title from the MODS of the parent, combined with " - ", "part " and the order of the child object within the compound.</P>
     </LI>
 </P>
 EODESC;
