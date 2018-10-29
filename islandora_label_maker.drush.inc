@@ -31,7 +31,7 @@ function islandora_label_maker_drush_command() {
     'options' => array(
       'ids_file' => 'The absolute filepath to a file containing a list of Islandora identifiers that will be used.',
       'format' => 'Optionally, the format of the output. Allowed values are: identifier, oldlabel, newlabel. Other values will be unchanged. Defaults to identifier;newlabel;oldlabel',
-      'include_related' => 'Optionally, also add the related items to the queue',
+      'include_related' => 'Optionally, also include the related items',
       'skip_unchanged' => 'Optionally, skip when the new label is the same as the old label',
       'silent' => 'Optionally, does not report when a label can not be made.',
     ),
@@ -57,7 +57,7 @@ function islandora_label_maker_drush_command() {
     'description' => 'Updates the labels for the identifiers. If the label can not be made, an error is generated. Only run this when you are sure!',
     'options' => array(
       'ids_file' => 'The absolute filepath to a file containing a list of Islandora identifiers that will be used.',
-      'include_related' => 'Optionally, also add the related items to the queue',
+      'include_related' => 'Optionally, also update the related items',
       'silent' => 'Optionally, does not report when a label can or should not be updated.',
     ),
     'aliases' => array('ilmupdate'),
