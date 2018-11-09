@@ -214,6 +214,7 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
       },
       $labeltemplate
     );
+    $label = str_replace(array("\r\n", "\r", "\n"), ' ', $label);
   }
   catch (IslandoraLabelMakerGuardException $e) {
     $label = FALSE;
@@ -301,8 +302,12 @@ function islandora_label_maker_label_for_solr_object($solrdoc, $labeltemplate) {
       $label
     );
   }
+  if ($label === FALSE) {
+    return FALSE;
+  }
   $label = trim($label);
-  if ($label === FALSE || strlen($label) === 0) {
+  $label = preg_replace('/\s\s+/', ' ', $label);
+  if (strlen($label) === 0) {
     return FALSE;
   }
   return $label;
