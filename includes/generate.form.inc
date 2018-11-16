@@ -36,9 +36,9 @@ function islandora_label_maker_generate_form(array $form, array &$form_state, Ab
   $newlabels = array();
   $newlabels[$object->id] = array('oldlabel' => $object->label, 'newlabel' => islandora_label_maker_label_for_object_id($object->id));
 
-  $related = islandora_label_maker_related_solrobj_for_object($object->id);
+  $related = islandora_label_maker_related_solrobj_for_object($object->id, TRUE);
   foreach ($related as $relsolrobj) {
-    $relid = $relsolrobj['PID'];
+    $relid = isset($relsolrobj['PID'])?$relsolrobj['PID']:$relsolrobj['pid'];
     $relobj = islandora_object_load($relid);
     $newlabels[$relid] = array('oldlabel' => $relobj->label, 'newlabel' => islandora_label_maker_label_for_object_id($relid));
   }

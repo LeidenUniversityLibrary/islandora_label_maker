@@ -93,8 +93,45 @@ function islandora_label_maker_add_to_label_queue($objectid, $time = NULL, $incl
  * @return array
  *   An array with Solr docs containing only the PID of the related objects.
  */
-function islandora_label_maker_related_solrobj_for_object($parentid) {
+function islandora_label_maker_related_solrobj_for_object($parentid, $sorted = FALSE) {
   $parentsolrfields = variable_get("islandora_label_maker_parent_solr_fields", array());
+  if ($sorted) {
+    $parent = islandora_object_load($parentid);
+    if ($parent) {
+      if (in_array('islandora:compoundCModel', $parent->models)) {
+        $compoundrelation = variable_get('islandora_solr_compound_relationship_field', 'RELS_EXT_isConstituentOf_uri_ms');
+        if (in_array($compoundrelation, $parentsolrfields)) {
+          if (drupal_load('module', 'islandora_compound_object')) {
+            return islandora_compound_object_get_parts($parent, TRUE);
+          }
+        }
+      }
+      elseif (in_array('islandora:bookCModel', $parent->models)) {
+        $bookrelation = 'RELS_EXT_isPageOf_uri_ms'; // Should come from setting?
+        if (in_array($bookrelation, $parentsolrfields)) {
+          if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities')) {
+            return islandora_paged_content_get_pages($parent);
+          }
+        }
+      }
+      elseif (in_array('islandora:newspaperCModel', $parent->models)) {
+        $newspaperrelation = variable_get('islandora_newspaper_parent_issue_solr_field', 'RELS_EXT_isMemberOf_uri_ms');
+        if (in_array($newspaperrelation, $parentsolrfields)) {
+          if (module_load_include('inc', 'islandora_newspaper', 'includes/utilities')) {
+            return islandora_newspaper_get_issues($parent);
+          }
+        }
+      }
+      elseif (in_array('islandora:newspaperIssueCModel', $parent->models)) {
+        $newspaperissuerelation = 'RELS_EXT_isPageOf_uri_ms'; // Should come from setting?
+        if (in_array($newspaperissuerelation, $parentsolrfields)) {
+          if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities')) {
+            return islandora_paged_content_get_pages($parent);
+          }
+        }
+      }
+    }
+  }
   $solrquery = "";
   foreach ($parentsolrfields as $parentsolrfield) {
     if (strlen($parentsolrfield) > 0) {
@@ -485,9 +522,9 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
         $result = $value;
       }
       elseif ($func === 'order') {
-        if (count($args) != 1 || !in_array($args[0], array('book', 'newspaper', 'compound'))) {
+        if (count($args) != 1 || !in_array($args[0], array('book', 'newspaper', 'compound', 'compoundByModel'))) {
           throw new IslandoraLabelMakerMalformedTemplateException(t(
-            "order() should have one argument (indicating the type of parent: book, newspaper, compound) but found @argscount: %args",
+            "order() should have one argument (indicating the type of parent: book, newspaper, compound, compoundByModel) but found @argscount: %args",
             array('@argscount' => count($args), '%args' => implode(',', $args))
           ));
         }
@@ -513,22 +550,39 @@ function islandora_label_maker_replace_part($part, $solrdoc, &$truncates) {
             }
           }
         }
-        elseif ($parenttype === 'compound') {
+        elseif ($parenttype === 'compound' || $parenttype === 'compoundByModel') {
           if (drupal_load('module', 'islandora_compound_object')) {
-            $objectid = islandora_label_maker_value_from_solrdoc('RELS_EXT_isConstituentOf_uri_ms', $solrdoc);
+            $compoundrelation = variable_get('islandora_solr_compound_relationship_field', 'RELS_EXT_isConstituentOf_uri_ms');
+            $objectid = islandora_label_maker_value_from_solrdoc($compoundrelation, $solrdoc);
             $objectid = str_replace('info:fedora/', '', $objectid);
             $object = islandora_object_load($objectid);
-            $children = islandora_compound_object_get_parts($object, TRUE);
-            if (isset($children[$solrdoc['PID']])) {
-              $result = $children[$solrdoc['PID']]['seq'];
+            $children = islandora_compound_object_get_parts($object, ($parenttype === 'compound'));
+            if ($parenttype === 'compound') {
+              if (isset($children[$solrdoc['PID']])) {
+                $result = $children[$solrdoc['PID']]['seq'];
+              }
+            }
+            elseif ($parenttype === 'compoundByModel') {
+              $ignore_models = array('fedora-system:FedoraObject-3.0');
+              $orderbymodel = array();
+              foreach ($children as $childid) {
+                $child = islandora_object_load($childid);
+                if ($child) {
+                  $cmodels = array_diff($child->models, $ignore_models);
+                  foreach ($cmodels as $cmodel) {
+                    if (!isset($orderbymodel[$cmodel])) {
+                      $orderbymodel[$cmodel] = 0;
+                    }
+                    $orderbymodel[$cmodel]++;
+                  }
+                  if ($childid === $solrdoc['PID']) {
+                    $result = $orderbymodel[$cmodel];
+                    break;
+                  }
+                }
+              }
             }
           }
-        }
-        else {
-          throw new IslandoraLabelMakerMalformedTemplateException(t(
-            "order() should have one argument (indicating the type of parent: book, newspaper, compound) but found @argscount: %args",
-            array('@argscount' => count($args), '%args' => implode(',', $args))
-          ));
         }
       }
     }
