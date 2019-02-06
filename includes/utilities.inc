@@ -618,21 +618,50 @@ function islandora_label_maker_args_split($argstr) {
   $args = array();
   $carg = '';
   $brackets = 0;
+  $openquotes = 0;
+  $closequotes = 0;
   foreach (preg_split('//u', $argstr) as $char) {
-    if ($char === '(') {
-      $brackets++;
+    if ($char === '"') {
+      if ($openquotes === 3) {
+        $closequotes++;
+        if ($closequotes === 3) {
+          $openquotes = 0;
+          $closequotes = 0;
+        }
+      }
+      else {
+        $openquotes++;
+      }
+      $carg .= $char;
+    }
+    elseif ($char === '(') {
+      if ($openquotes !== 3) {
+        $brackets++;
+        $openquotes = 0;
+        $closequotes = 0;
+      }
       $carg .= $char;
     }
     elseif ($char === ')') {
-      $brackets--;
+      if ($openquotes !== 3) {
+        $brackets--;
+        $openquotes = 0;
+        $closequotes = 0;
+      }
       $carg .= $char;
     }
-    elseif ($char === ',' && $brackets === 0) {
+    elseif ($char === ',' && $brackets === 0 && $openquotes !== 3) {
       $args[] = trim($carg);
       $carg = '';
+      $openquotes = 0;
+      $closequotes = 0;
     }
     else {
       $carg .= $char;
+      if ($openquotes !== 3) {
+        $openquotes = 0;
+        $closequotes = 0;
+      }
     }
   }
   $args[] = trim($carg);
@@ -641,6 +670,9 @@ function islandora_label_maker_args_split($argstr) {
   }
   if ($brackets < 0) {
     throw new IslandoraLabelMakerMalformedTemplateException("Too many closing brackets in $argstr");
+  }
+  if ($openquotes === 3) {
+    throw new IslandoraLabelMakerMalformedTemplateException("Quoted part should end with triple quotes in $argstr");
   }
 
   return $args;
